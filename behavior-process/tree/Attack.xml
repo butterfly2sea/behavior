@@ -1,0 +1,57 @@
+<root BTCPP_format="4"> 
+   
+    
+    <BehaviorTree ID="TraceAttackTree">
+        <SequenceWithMemory>
+            <RetryUntilSuccessful num_attempts="30">          
+                <SetTraceAttackObj />
+            </RetryUntilSuccessful>
+            <SubTree ID="EnterOffboardTree" />
+            <ForceSuccess>
+                <NavwayCtrl frame="1" command="3"/>
+            </ForceSuccess>
+            <ForceSuccess>
+               <TraceAttackCtrl frame="1" command="{cmd_type}" current="{act_type}" />
+            </ForceSuccess>
+            <KeepRunningUntilFailure>
+                <ForceSuccess>
+		           <Delay delay_msec="30">
+		               <SetTraceAttackObj filter="true"/>
+		           </Delay> 
+	            </ForceSuccess>
+	        </KeepRunningUntilFailure>
+         </SequenceWithMemory>
+    </BehaviorTree>
+
+    <BehaviorTree ID="Attack-start">
+        <SequenceWithMemory>
+            <SubTree ID="TraceAttackTree" _autoremap="true" cmd_type="0" act_type="1" />
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+     <BehaviorTree ID="Attack-pause">
+        <SequenceWithMemory>
+            <ForceSuccess>
+                <TraceAttackCtrl frame="1" command="1" current="1" />
+            </ForceSuccess>
+            <SubTree ID="LoitTree" />
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+    <BehaviorTree ID="Attack-continue">
+        <SequenceWithMemory>
+            <SubTree ID="TraceAttackTree" _autoremap="true" cmd_type="2" act_type="1" />
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+    <BehaviorTree ID="Attack-stop">
+        <Sequence>
+            <ReactiveFallback>
+                <TraceAttackCtrl frame="1" command="3" current="1" />
+                <SubTree ID="LoitTree" />
+            </ReactiveFallback>
+            <SubTree ID="LoitTree" />
+        </Sequence>
+    </BehaviorTree>
+    
+</root>

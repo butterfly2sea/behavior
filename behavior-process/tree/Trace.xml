@@ -1,0 +1,35 @@
+<root BTCPP_format="4"> 
+   
+    <BehaviorTree ID="Trace-start">
+        <SequenceWithMemory>
+            <SubTree ID="TraceAttackTree" _autoremap="true" cmd_type="0" act_type="0" />
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+    <BehaviorTree ID="Trace-pause">
+        <SequenceWithMemory>
+            <ForceSuccess>
+                <TraceAttackCtrl frame="1" command="1" current="0" />
+            </ForceSuccess>
+            <SubTree ID="LoitTree" />
+            
+        </SequenceWithMemory>
+    </BehaviorTree>
+    
+    <BehaviorTree ID="Trace-continue">
+        <SequenceWithMemory>
+           <SubTree ID="TraceAttackTree" _autoremap="true" cmd_type="2" act_type="0" />
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+    <BehaviorTree ID="Trace-stop">
+        <Sequence>
+            <ReactiveFallback>
+                <TraceAttackCtrl frame="1" command="3" current="0" />
+                <SubTree ID="LoitTree" />
+            </ReactiveFallback>
+            <SubTree ID="LoitTree" />
+        </Sequence>
+    </BehaviorTree>
+    
+</root>
