@@ -25,7 +25,6 @@
             <SubTree ID="KeepRunTree" />
         </SequenceWithMemory>
     </BehaviorTree>
- 
 
      <BehaviorTree ID="Navline-pause">
      
@@ -61,7 +60,6 @@
         </SequenceWithMemory>
     </BehaviorTree>
  
-
      <BehaviorTree ID="SrchViaLine-pause">
      
           <SequenceWithMemory>
@@ -78,5 +76,4 @@
             <SubTree ID="LoitTree" />
         </SequenceWithMemory>
     </BehaviorTree>
-    
 </root>

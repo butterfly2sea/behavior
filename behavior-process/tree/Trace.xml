@@ -31,5 +31,31 @@
             <SubTree ID="LoitTree" />
         </Sequence>
     </BehaviorTree>
+
+    <BehaviorTree ID="PodGpsLock-start">
+        <SequenceWithMemory>
+            <ForceSuccess>
+                <CameraCtrl ctrltyp="123"/>
+            </ForceSuccess>
+            <ReactiveFallback>
+                <TraceStatus  ctrltyp="{typ}" param1="{p1}" param2="{p2}" param3="{p3}"/>
+                <KeepRunningUntilFailure>
+                    <ForceSuccess>
+                        <CameraCtrl ctrltyp="{typ}" param1="{p1}" param2="{p2}" param3="{p3}"/>
+                    </ForceSuccess>
+                </KeepRunningUntilFailure>
+            </ReactiveFallback>
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+    <BehaviorTree ID="PodGpsLock-stop">
+        <SequenceWithMemory>
+            <Repeat num_cycles="2" >
+            <ForceSuccess>
+                <CameraCtrl ctrltyp="123"/>
+            </ForceSuccess>
+            </Repeat>
+        </SequenceWithMemory>
+    </BehaviorTree>
     
 </root>

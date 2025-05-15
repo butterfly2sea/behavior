@@ -21,15 +21,12 @@ namespace zyzn
         class CSetTraceAttackObj : public SyncActionNode
         {
         public:
-            /**
-             * 目标分类
-            */
-            enum EObjCls{
-                ObjCar=0, ///<!车>
-                ObjRCode, ///<!二维码>
-                ObjBall,  ///<!球>
-                ObjHuman  ///<!人>
+            enum EObjId{
+                NacObj1=1, ///<! 吊舱凝视框的目标id为1>
+                NacObj2=2, ///<! 吊舱自己计算的gps目标id为2>
+                GrdObj=3   ///<! 地面目标id为3>
             };
+
             /**
              * 目标信息
             */
@@ -41,13 +38,22 @@ namespace zyzn
                             const BT::NodeConfig &conf);
             static PortsList providedPorts();
 
+            static void regist(BehaviorTreeFactory &factory);
+
             /**
              * @brief 定时执行函数，会由父节点调用
              * @result 
             */
             NodeStatus tick();
 
-            public:
+            inline static custom_msgs::msg::ObjectLocation & objLoc(){
+                return m_s_attckObj;
+            }
+            inline static STgtInfo & tgtInfo(){
+                return m_s_tgt;
+            }
+
+            private:
             static custom_msgs::msg::ObjectLocation m_s_attckObj;//目标信息
             static STgtInfo m_s_tgt;//任务打击目标信息
             rclcpp::Publisher<custom_msgs::msg::ObjectLocation>::SharedPtr m_pubTraceAttackObj;

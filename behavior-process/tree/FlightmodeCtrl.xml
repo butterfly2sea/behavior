@@ -25,6 +25,7 @@
 
     <BehaviorTree ID="LandTree">
         <SequenceWithMemory>
+
         <GetLocation />
         <FlightmodeCtrl mode="5" />
         <ForceSuccess>

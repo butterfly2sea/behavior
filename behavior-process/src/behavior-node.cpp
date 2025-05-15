@@ -14,14 +14,15 @@ int main(int argc, char ** argv)
   exePath.resize(exePath.find_last_of("/")+1);
 
   rclcpp::init(argc,argv);
+
   std::shared_ptr<zyzn::manage::CActionsMgr> actMgr = std::make_shared<zyzn::manage::CActionsMgr>();
   std::shared_ptr<zyzn::manage::ActionPluginMgr>plgMgr = std::make_shared<zyzn::manage::ActionPluginMgr>();
   
   RCLCPP_INFO(rclcpp::get_logger("rclcpp"),"start behavior-node build at:%s %s",__DATE__,__TIME__);
   std::shared_ptr<rclcpp::Node> treeNode = std::make_shared<rclcpp::Node>("tree_node");
   std::shared_ptr<rclcpp::Node> routeNode = std::make_shared<rclcpp::Node>("route_node");
-  auto decisionNode = std::make_shared<zyzn::ctrl::CTaskDecision>("decision_node",actMgr,plgMgr);
-  zyzn::info::CParam::rosNode() = treeNode;
+  auto decisionNode = std::make_shared<zyzn::ctrl::CTaskDecision>("decision_node");
+  zyzn::info::CParam::m_glbNode = (rclcpp::Node::SharedPtr)decisionNode;
   decisionNode.get()->setNode(routeNode);
   decisionNode.get()->regisAllNode(exePath);
   rclcpp::executors::MultiThreadedExecutor exetor;

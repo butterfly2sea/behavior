@@ -3,8 +3,8 @@
     <BehaviorTree ID="StartLineTree">
         <SequenceWithMemory>
             <GetLocation target="{ctrl_info}" zoffset="0"/>
-            <SetTriggers delay="{time_info}" /> 
-	        <SetLine antiDis="0.6" />   
+
+	        <SetLine antiDis="0.6" delay="{time_info}"/>   
 
 	        <SubTree ID="EnterOffboardTree" />
            
@@ -32,6 +32,7 @@
 
     <BehaviorTree ID="PreSearchTree">
         <SequenceWithMemory>
+
             <SubTree ID="StartLineTree" />
             <ReactiveFallback>
             	<CheckWayViaTp />
@@ -39,7 +40,6 @@
             	<Script code="msg:='test'"/>
             	</KeepRunningUntilFailure>
 	        </ReactiveFallback>
-            
         </SequenceWithMemory>
     </BehaviorTree>
     

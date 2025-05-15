@@ -1,12 +1,12 @@
 #include "../../include/check/CheckQuitSearch.hpp"
-#include <info/Param.hpp>
+#include "../../include/info/Param.hpp"
 #include "../../include/set/SetTraceAttackObj.hpp"
 namespace zyzn{
     namespace check{
         CCheckQuitSearch::CCheckQuitSearch(const std::string & instance_name,
             const BT::NodeConfig& conf):SyncActionNode(instance_name, conf),m_autoNxt(true),m_lastMsg(nullptr),
             m_subObjComputation(nullptr){
-                m_subObjComputation = info::CParam::rosNode()->create_subscription<custom_msgs::msg::ObjectComputation>
+                m_subObjComputation = info::CParam::m_glbNode->create_subscription<custom_msgs::msg::ObjectComputation>
                 ("inner/information/object_computation", rclcpp::SensorDataQoS(), 
                 std::bind(&CCheckQuitSearch::objCB, this, std::placeholders::_1));
         }
@@ -18,7 +18,7 @@ namespace zyzn{
 
         NodeStatus CCheckQuitSearch::tick(){
             if(m_lastMsg && m_lastMsg->objs.size()>0){
-                int64_t tn = info::CParam::rosNode()->now().seconds();
+                int64_t tn = info::CParam::m_glbNode->now().seconds();
                 if(abs(tn-m_lastMsg->header.stamp.sec )<2){
                     bool fd = false;
                     //如果已经指定目标id，判定目标id同指定id一致则认为找到目标

@@ -1,5 +1,6 @@
 <root BTCPP_format="4"> 
-   
+
+
     
     <BehaviorTree ID="TraceAttackTree">
         <SequenceWithMemory>
@@ -52,6 +53,23 @@
             </ReactiveFallback>
             <SubTree ID="LoitTree" />
         </Sequence>
+    </BehaviorTree>
+    
+    <BehaviorTree ID="TermAttackTree">
+        <SequenceWithMemory>
+            <GetLocation target="{ctrl_info}" zoffset="0"/>
+            <ForceSuccess>
+               <TraceAttackCtrl frame="1" command="3"  />
+            </ForceSuccess>
+            <ForceSuccess>
+                <NavwayCtrl frame="1" command="3"/>
+            </ForceSuccess>
+            <KeepRunningUntilFailure>
+                <Delay delay_msec="30">
+                    <OffboardCtrl ctrl="{ctrl_info}"/>
+                </Delay>
+            </KeepRunningUntilFailure>
+         </SequenceWithMemory>
     </BehaviorTree>
     
 </root>

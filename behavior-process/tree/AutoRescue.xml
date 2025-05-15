@@ -1,0 +1,198 @@
+<root BTCPP_format="4"> 
+
+    <BehaviorTree ID="CurLocCtrlTree">
+        
+        <KeepRunningUntilFailure>
+            <SequenceWithMemory>
+            <ForceSuccess>
+	        <GetLocation locx="{locx_val}" locy="{locy_val}" locz="{locz_val}" />
+            </ForceSuccess>
+	    <Delay delay_msec="30">
+		<OffboardCtrl ctrl="{ctrl_info}" usevel="1" locx="{locx_val}" locy="{locy_val}" locz="{locz_val}" />
+	    </Delay>
+	    </SequenceWithMemory>
+        </KeepRunningUntilFailure> 
+        
+    </BehaviorTree>
+
+    <BehaviorTree ID="DetecTree">
+    <SequenceWithMemory>
+    	<Script code=" zval:= dtcz_val + objz_val "/>
+    	<GetLocation target="{rescue_info}" fixed="{zval}"/>
+    	<SetOutTargetPos ox="{ox_val}" oy="{oy_val}" tgtz="{zval}"/>
+    	<ReactiveFallback>
+    	    <CheckArriveDst target="{rescue_info}" arvdis="0.5" ox="{ox_val}" oy="{oy_val}" oz="{oz_val}"/>
+    
+	
+	    <SubTree ID="CurLocCtrlTree" _autoremap="true" ctrl_info="{rescue_info}"/>
+    	</ReactiveFallback>
+    	<CommandStatus cmd="2" subcmd="0" status="3" rslt="到达探测点,等待确认是否投放物资"/>
+    	<ReactiveFallback>
+    	    <CheckEndDetec objidx="{objidx_val}" throw="{throw_val}" cmd="{cmd_val}" rslt="{rslt_val}" param0="{p0_val}"/>
+	    <SubTree ID="CurLocCtrlTree" _autoremap="true" ctrl_info="{rescue_info}"/> 	    
+    	</ReactiveFallback>
+    	<CommandStatus cmd="2" subcmd="0" status="3" rslt="{rslt_val}"/>
+    	
+    </SequenceWithMemory>
+    </BehaviorTree>
+    
+    <BehaviorTree ID="TakeoffTree">
+    <SequenceWithMemory>
+    	<ForceSuccess>
+            <NavwayCtrl frame="1" command="3"/>
+        </ForceSuccess>
+        <ForceSuccess>
+            <TraceAttackCtrl frame="1" command="3" />
+        </ForceSuccess>
+    	<SubTree ID="EnterOffboardTree" />
+	<GetLocation target="{ctrl_info}" fixed="{takeoff_z}" getyaw="1"/>
+	<ReactiveFallback>
+	<CheckArriveDst target="{ctrl_info}"/>
+	<KeepRunningUntilFailure>
+		<Delay delay_msec="30">
+			<OffboardCtrl ctrl="{ctrl_info}"/>
+		</Delay>
+	</KeepRunningUntilFailure>
+	</ReactiveFallback>
+    </SequenceWithMemory>    
+    </BehaviorTree>
+    
+    <BehaviorTree ID="AssambleTree">
+    <SequenceWithMemory>
+    	<GetAssembleLocation target="{ctrl_info}" loc="{ctrl_info}" ox="{ox_val}" oy="{oy_val}" asbx="{asbx_val}" asby="{asby_val}"/>
+    	<ReactiveFallback>
+    	    <CheckArriveDst target="{ctrl_info}" arvdis="0.5" ox="{ox_val}" oy="{oy_val}" oz="{oz_val}"/>
+    	   
+	    <SubTree ID="CurLocCtrlTree"  _autoremap="true" />
+    	    
+    	</ReactiveFallback>
+    </SequenceWithMemory>
+    </BehaviorTree>
+    
+    <BehaviorTree ID="RescueTree">
+    <ReactiveFallback>
+    	   <CheckObjInfo type="0" throw="{throw_val}"/>
+           
+    	    <KeepRunningUntilFailure>
+    	        <ForceSuccess>
+    	    	<SequenceWithMemory>
+    	    	    
+    	    	    <ReactiveFallback>
+    	    	        <CheckObjInfo type="1" lstcpt="{lstcpt_val}"/>
+			 
+
+    	    	    	<KeepRunningUntilFailure>
+    	    	    	    <ForceSuccess>
+    	    	    	    <Sequence>
+    	    	    	    	<ForceSuccess>
+    	    	    	    	    <GetLocation target="{ctrl_info}" fixed="{rscz_val}"/>
+    	    	    	    	</ForceSuccess>
+    	    	    	    	<GetRescueLocation ox="{ox_val}" oy="{oy_val}" disvehi="{disv_val}" lstcpt="{lstcpt_val}" 
+    	    	    	    	loc="{ctrl_info}" target="{rescue_info}" objidx="{objidx_val}" objz="{objz_val}"/>
+    	    	    	    	
+    	    	    	    	<ReactiveFallback>
+    	    	    	    	    <CheckArriveDst target="{rescue_info}" arvdis="0.5" ox="{ox_val}" oy="{oy_val}" oz="{oz_val}"/>
+    	    	    	    	    
+    	    	    	    	  
+    	    	    	    	    <SubTree ID="CurLocCtrlTree" _autoremap="true" ctrl_info="{rescue_info}"/>
+    	    	    	    	</ReactiveFallback>
+    	    	    	    	<SubTree ID="DetecTree" _autoremap="true" />
+    	    	    	    	<GetLocation target="{loit_info}" zoffset="0"/>
+    	    	    	    </Sequence>
+    	    	    	    </ForceSuccess>
+    	    	    	</KeepRunningUntilFailure>
+    	    	    </ReactiveFallback>
+    	    	    <OffboardCtrl ctrl="{loit_info}"/>
+    	    	</SequenceWithMemory>
+    	    	</ForceSuccess>
+    	    </KeepRunningUntilFailure>
+
+    </ReactiveFallback>
+    </BehaviorTree>
+    
+    <BehaviorTree ID="ThrowTree">
+    <ReactiveFallback>
+    	   <CheckObjInfo type="0" throw="{throw_val}"/>
+           
+    	    <KeepRunningUntilFailure>
+    	        <ForceSuccess>
+   	    	    	    
+    	           <SubTree ID="CurLocCtrlTree" _autoremap="true" ctrl_info="{rescue_val}"/>
+    	    	    	
+    	    	</ForceSuccess>
+    	    </KeepRunningUntilFailure>
+
+    </ReactiveFallback>
+    </BehaviorTree>
+    
+    <BehaviorTree ID="AutoRescueTree">
+    <SequenceWithMemory>
+        <ReactiveFallback>
+            <CheckRescue lock="{lck_val}" flymd="{fly_val}" olock="{olck_val}" oflymd="{ofly_val}" throw="{throw_val}" rscZ="{rscz_val}" dtcZ="{dtcz_val}"
+            rscVel="{rscv_val}" aprVel="{aprv_val}" rtlVel="{rtlv_val}" asbx="{asbx_val}" asby="{asby_val}" 
+            lstcpt="{lstcpt_val}" shMsg="{sh_val}" msg="{msg_val}" objfrm="10" objscr="30" rscLoc="{rescue_info}"/>
+           
+            <ForceFailure>
+                <Delay delay_msec="5000">
+                    <Precondition if="sh_val>0" else="FAILURE">
+                    <Sequence>
+
+                    <CommandStatus  cmd="2" subcmd="0" status="3" rslt="{msg_val}"/>
+                    </Sequence>
+                    </Precondition>
+                </Delay>
+            </ForceFailure>
+            
+            <ForceFailure>
+                <GetLocation target="{ctrl_info}" fixed="{rscz_val}" lock="{lck_val}" flymd="{fly_val}" />
+            </ForceFailure>
+            <KeepRunningUntilFailure>
+                <GetOutlocation olock="{olck_val}" oflymd="{ofly_val}" ox="{ox_val}" oy="{oy_val}" oz="{oz_val}"/>
+            </KeepRunningUntilFailure>
+        </ReactiveFallback>
+        <GetRescueLocation  target="{rescue_info}"/>
+        
+        <SubTree ID="TakeoffTree" _autoremap="true" takeoff_z="{rscz_val}" />
+        
+        <SetSpd spd="{aprv_val}" />
+    	<SubTree ID="AssambleTree"  _autoremap="true" />
+    
+    	<SubTree ID="RescueTree"  _autoremap="true" />
+    	<CommandStatus  cmd="2" subcmd="0" status="3" rslt="抛投结束,飞往集结点"/>
+    	<SubTree ID="AssambleTree" _autoremap="true"/>
+    	<CommandStatus  cmd="2" subcmd="0" status="3" rslt="到达集结点,开始降落"/>
+    	<SubTree ID="LandTree" />
+    	
+    </SequenceWithMemory>
+    </BehaviorTree>
+    
+    <BehaviorTree ID="AutoThrowTree">
+    <SequenceWithMemory>
+        <ReactiveFallback>
+            <CheckRescue lock="{lck_val}" flymd="{fly_val}" olock="{olck_val}" oflymd="{ofly_val}" throw="{throw_val}" rscZ="{rscz_val}" dtcZ="{dtcz_val}"
+            rscVel="{rscv_val}" aprVel="{aprv_val}" rtlVel="{rtlv_val}" asbx="{asbx_val}" asby="{asby_val}" 
+            lstcpt="{lstcpt_val}" shMsg="{sh_val}" msg="{msg_val}" target="{rescue_val}"/>
+         
+            <ForceFailure>
+                <GetLocation target="{ctrl_info}" fixed="{rscz_val}" lock="{lck_val}" flymd="{fly_val}" getyaw="1"/>
+            </ForceFailure>
+            <KeepRunningUntilFailure>
+                <GetOutlocation olock="{olck_val}" oflymd="{ofly_val}" ox="{ox_val}" oy="{oy_val}" oz="{oz_val}"/>
+            </KeepRunningUntilFailure>
+        </ReactiveFallback>
+        <Delay delay_msec="5000">
+        <SubTree ID="TakeoffTree" _autoremap="true" takeoff_z="{rscz_val}" />
+        </Delay>
+        <SetSpd spd="{aprv_val}" />
+    	<SubTree ID="AssambleTree"  _autoremap="true" />
+    
+    	<SubTree ID="ThrowTree"  _autoremap="true" />
+    	<SubTree ID="AssambleTree" _autoremap="true"/>
+    	<CommandStatus  cmd="2" subcmd="0" status="3" rslt="到达集结点,开始降落"/>
+    	<SubTree ID="LandTree" />
+    	
+    </SequenceWithMemory>
+    </BehaviorTree>
+    
+    
+</root>

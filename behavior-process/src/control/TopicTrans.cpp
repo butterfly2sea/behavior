@@ -1,6 +1,5 @@
 #include <control/TopicTrans.hpp>
 #include <info/Param.hpp>
-#include <plugin/base_plugin.hpp>
 namespace zyzn{
     namespace ctrl{
         std_msgs::msg::String TopicTrans::m_info;
@@ -8,10 +7,7 @@ namespace zyzn{
         const NodeConfig& conf):SyncActionNode(name, conf),m_pubInfo(nullptr){
             std::string tpcName("formation/task_gen");
             getInput<std::string>("tpc", tpcName);
-            m_pubInfo = info::CParam::rosNode()->create_publisher<std_msgs::msg::String>(tpcName,10);
-            
-            std::string paramName = "transValue";
-            m_info.data = info::CParam::getParam(paramName).asCString();
+            m_pubInfo = info::CParam::m_glbNode->create_publisher<std_msgs::msg::String>(tpcName,10);
         }
 
         PortsList TopicTrans::providedPorts(){
