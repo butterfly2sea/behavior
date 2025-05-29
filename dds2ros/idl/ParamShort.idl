@@ -1,0 +1,7 @@
+struct ParamShort{
+octet type;       //参数、指令类型说明
+long param1;     //参数1
+long param2;     //参数2
+long param3;     //参数3
+long param4;     //参数4
+};

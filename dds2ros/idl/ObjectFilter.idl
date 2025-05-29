@@ -1,0 +1,6 @@
+struct ObjectFilter{
+    octet  type;       //0:关闭目标过滤功能,1:按目标内容(path指定图片文件路径)过滤,2:按目标分类过滤,3:不进行目标过滤
+    string path;      //图片文件路径，type为1时使用
+    unsigned short  cls;       //目标分类
+    octet   subcls;    //目标子分类
+};

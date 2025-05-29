@@ -1,0 +1,18 @@
+#include "StageHead.idl"
+#include "ParamShort.idl"
+#include "ObjectFilter.idl"
+
+struct TaskStage{
+StageHead head;                   //阶段任务头
+octet scopetype;                  //区域范围类型
+sequence<float> linx;             //航点x分量
+sequence<float> liny;             //航点y分量
+sequence<float> linz;             //航点z分量
+float maxspd;                     //最大飞行速度
+ParamShort trigger;               //任务阶段触发条件
+ParamShort form;                  //编队队形
+sequence<float> formOffsetx;      //偏移队形时分组内每个飞机位置偏移x分量
+sequence<float> formOffsety;      //偏移队形时分组内每个飞机位置偏移y分量
+sequence<float> formOffsetz;      //偏移队形时分组内每个飞机位置偏移z分量
+ObjectFilter objs;                //目标信息
+};

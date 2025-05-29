@@ -1,0 +1,6 @@
+struct StageHead{
+octet grpid;             //分组编号
+sequence<octet> ids;     //同分组内全部id号
+octet stage;             //任务阶段
+octet tag;               //阶段标识
+};

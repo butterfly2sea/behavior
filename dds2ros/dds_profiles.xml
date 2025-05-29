@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<dds xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+    <profiles>
+     
+
+        <participant profile_name="participant_profile">
+            <!-- ... -->
+			<rtps>
+                <name>zyzndistributionsystem</name>
+				<builtin>
+					<discovery_config>
+						<leaseDuration>
+							<sec>DURATION_INFINITY</sec>
+						</leaseDuration>
+						<leaseAnnouncement>
+							<sec>100</sec>
+						</leaseAnnouncement>
+						<initialAnnouncements>
+							<count>5</count>
+							<period>
+								<sec>3</sec>
+							</period>
+						</initialAnnouncements>
+						<clientAnnouncementPeriod>
+							<sec>10</sec>
+						</clientAnnouncementPeriod>
+
+					
+					</discovery_config>
+				</builtin>
+			</rtps>	
+        </participant>
+
+        <data_writer profile_name="level0_datawriter_profile">
+            <!-- ... -->
+			<qos>
+				<!-- DataWriter specific QoS -->
+				<lifespan>
+					<duration>
+						<sec>3</sec>
+					</duration>
+				</lifespan>
+				
+
+				<disablePositiveAcks>
+					<enabled>true</enabled>
+					<duration>
+						<sec>1</sec>
+					</duration>
+				</disablePositiveAcks>
+
+				<durability>
+					<kind>VOLATILE</kind>
+				</durability>
+				
+				<reliability>
+					<kind>RELIABLE</kind>
+					<max_blocking_time>
+						<sec>1</sec>
+					</max_blocking_time>
+				</reliability>
+				<publishMode>
+					<kind>ASYNCHRONOUS</kind>
+				</publishMode>
+			</qos>
+			<times> <!-- writerTimesType -->
+                <initialHeartbeatDelay>
+                    <nanosec>12000000</nanosec>
+                </initialHeartbeatDelay>
+
+                <heartbeatPeriod>
+                    <sec>20</sec>
+                </heartbeatPeriod>
+
+                <nackResponseDelay>
+                    <nanosec>5000000</nanosec>
+                </nackResponseDelay>
+
+                <nackSupressionDuration>
+                    <sec>0</sec>
+                </nackSupressionDuration>
+            </times>
+        </data_writer>
+
+        <data_reader profile_name="level0_datareader_profile">
+            <!-- ... -->
+			<qos>
+				<lifespan>
+					<duration>
+						<sec>3</sec>
+					</duration>
+				</lifespan>
+				
+				<disablePositiveAcks>
+					<enabled>true</enabled>
+				</disablePositiveAcks>
+				<reliability>
+					<kind>BEST_EFFORT</kind>
+					<max_blocking_time>
+						<sec>1</sec>
+					</max_blocking_time>
+				</reliability>
+			</qos>
+        </data_reader>
+		
+		<topic profile_name="level0_topic_profile">
+            <!-- ... -->
+			<historyQos>
+				<kind>KEEP_LAST</kind>
+				<depth>1</depth>
+			</historyQos>
+        </topic>
+		
+		
+		<data_writer profile_name="level9_datawriter_profile">
+            <!-- ... -->
+			<qos>
+				<!-- DataWriter specific QoS -->
+				<lifespan>
+					<duration>
+						<sec>3</sec>
+					</duration>
+				</lifespan>
+			
+
+				<disablePositiveAcks>
+					<enabled>true</enabled>
+					<duration>
+						<sec>1</sec>
+					</duration>
+				</disablePositiveAcks>
+
+				<durability>
+					<kind>VOLATILE</kind>
+				</durability>
+				
+				<reliability>
+					<kind>BEST_EFFORT</kind>
+					<max_blocking_time>
+						<sec>1</sec>
+					</max_blocking_time>
+				</reliability>
+				<publishMode>
+					<kind>ASYNCHRONOUS</kind>
+				</publishMode>
+			</qos>
+			<times> <!-- writerTimesType -->
+                <initialHeartbeatDelay>
+                    <nanosec>12000000</nanosec>
+                </initialHeartbeatDelay>
+
+                <heartbeatPeriod>
+                    <sec>20</sec>
+                </heartbeatPeriod>
+
+                <nackResponseDelay>
+                    <nanosec>5000000</nanosec>
+                </nackResponseDelay>
+
+                <nackSupressionDuration>
+                    <sec>0</sec>
+                </nackSupressionDuration>
+            </times>
+        </data_writer>
+
+        <data_reader profile_name="level9_datareader_profile">
+            <!-- ... -->
+			<qos>
+				<lifespan>
+					<duration>
+						<sec>3</sec>
+					</duration>
+				</lifespan>
+				
+				<disablePositiveAcks>
+					<enabled>true</enabled>
+				</disablePositiveAcks>
+				<reliability>
+					<kind>BEST_EFFORT</kind>
+					<max_blocking_time>
+						<sec>1</sec>
+					</max_blocking_time>
+				</reliability>
+			</qos>
+        </data_reader>
+
+        
+		
+		 <topic profile_name="level9_topic_profile">
+            <!-- ... -->
+			<historyQos>
+				<kind>KEEP_LAST</kind>
+				<depth>1</depth>
+			</historyQos>
+        </topic>
+
+        <transport_descriptors>
+            <!-- ... -->
+        </transport_descriptors>
+    </profiles>
+
+
+    <log>
+        <!-- ... -->
+		
+		<use_default>false</use_default>
+
+		<thread_settings>
+            <scheduling_policy>-1</scheduling_policy>
+            <priority>0</priority>
+            <affinity>0</affinity>
+            <stack_size>-1</stack_size>
+        </thread_settings>
+    </log>
+
+</dds>

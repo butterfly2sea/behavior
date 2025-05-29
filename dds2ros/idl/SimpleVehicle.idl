@@ -1,0 +1,27 @@
+struct SimpleVehicle
+{
+long long  time;      //时间 ms
+octet   grp;           //分组编号
+octet   id;              //飞机id
+octet   bat;             //剩余电量
+octet   fix;             //gps fix状态
+unsigned short  volt;    //电压 0.01v
+octet  sate;             //星数
+octet  lock;             //上锁状态
+octet  flymd;             //飞行模式
+long   roll;             //横滚 mrad
+long   pitch;            //俯仰 mrad
+long   yaw;              //偏航 mrad
+long   x;                //locx mm
+long   y;                //locy mm
+long   z;                //locz mm
+long   vx;               //速度 mm/s
+long   vy;      
+long   vz;      
+long   airspd;           //空速 mm/s
+long   lon;              //经度 deg E7
+long   lat;              //纬度 deg E7
+long   alt;              //海拔高度 mm
+long   radz;             //雷达高度 mm
+    
+};

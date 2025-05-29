@@ -1,0 +1,13 @@
+struct StatusTask{
+    octet id;          //飞机id
+    octet stage;	   //任务阶段
+    octet tag;         //阶段标识 0:前突,1:搜索,2:跟踪打击,3:回收
+    
+    octet status;      //任务状态
+    
+    unsigned short dstwaypt;   //目标航点id
+    
+    unsigned long diswaypt;   //距离目标航点距离
+    unsigned long disobj;     //距离目标距离
+    unsigned long obj;        //目标id
+};

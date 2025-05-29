@@ -1,0 +1,7 @@
+struct VehiWarning{
+    octet id;     //飞机id
+    octet src;    //告警信息来源 0:飞控,1:光电,2:雷达,3:武器
+    unsigned short tag;   //告警信息类别
+    octet  level; //告警级别
+    string desc;  //告警信息描述 
+};

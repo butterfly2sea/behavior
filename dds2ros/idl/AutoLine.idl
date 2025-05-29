@@ -1,0 +1,7 @@
+struct AutoLine{
+octet id;        //上报飞机id
+octet typ;       //航点类型，0：loc，1：gps
+sequence<long> x_lat;  //航线x(mm)或lat(deg*1e7)分量
+sequence<long> y_lon;  //航线y(mm)或lon(deg*1e7)分量
+sequence<long> z_alt;  //航线z(mm)或alt(mm)分量
+};

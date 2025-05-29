@@ -1,0 +1,8 @@
+#include"ObjectReport.idl"
+
+struct AttackObjectDesignate{
+    octet grpid;        //分组id
+    sequence<octet> ids;  //分组内飞机id
+    octet type;        //打击方式
+    ObjectReport objs; //需要打击目标信息
+};
