@@ -7,10 +7,13 @@
 
 #include <geometry_msgs/msg/point32.hpp>
 
+#include "base_nodes.hpp"
+
 // 设置目标点节点
-class SetDestinationPoint : public BT::SyncActionNode {
+class SetDestinationPoint : public SyncActionBase<SetDestinationPoint> {
  public:
-  SetDestinationPoint(const std::string &name, const BT::NodeConfig &config);
+  SetDestinationPoint(const std::string &name, const BT::NodeConfig &config, NodeDependencies deps)
+      : SyncActionBase<SetDestinationPoint>(name, config, deps) {}
 
   static BT::PortsList providedPorts();
 

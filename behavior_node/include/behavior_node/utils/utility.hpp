@@ -7,7 +7,7 @@
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/point32.hpp>
 
-#include "base_enum.hpp"
+#include "behavior_node/data/base_enum.hpp"
 
 namespace utility {
 

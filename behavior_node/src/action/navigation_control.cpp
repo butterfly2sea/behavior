@@ -2,13 +2,8 @@
 
 #include <log/Logger.hpp>
 
-NavigationControl::NavigationControl(const std::string &name,
-                                     const BT::NodeConfig &config,
-                                     std::shared_ptr<rclcpp::Node> node)
-    : BT::StatefulActionNode(name, config),
-      node_(node),
-      client_(node->create_client<custom_msgs::srv::CommandInt>(service_name_)) {
-}
+#include "behavior_node/data/ros_communication_manager.hpp"
+#include "behavior_node/data/ros_interface_definitions.hpp"
 
 BT::PortsList NavigationControl::providedPorts() {
   return {
@@ -25,9 +20,9 @@ BT::NodeStatus NavigationControl::onStart() {
   auto req = std::make_shared<custom_msgs::srv::CommandInt::Request>();
   req->frame = frame;
   req->command = command;
-  if (client_->wait_for_service(std::chrono::milliseconds(50)) && client_->service_is_ready()) {
+  if (ros()->isServiceReady(ros_interface::services::FORMATION_SWITCH)) {
     txtLog().info(THISMODULE "NavigationControl: Navigation service is ready");
-    future_ = client_->async_send_request(req);
+    future_ = ros()->callService<custom_msgs::srv::CommandInt>(ros_interface::services::FORMATION_SWITCH, req);
     return BT::NodeStatus::RUNNING;
   }
   return BT::NodeStatus::FAILURE;

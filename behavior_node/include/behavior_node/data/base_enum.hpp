@@ -115,7 +115,7 @@ enum class ControlType {
 };
 
 // set_line
-enum SetContentTyp {
+enum SetContentType {
   VEHICLE_TYP = 1,  ///<! 载具类型>
   SPD = 2,          ///<! 速度>
   ANTI_DIS = 4,     ///<! 避撞距离>
@@ -153,4 +153,50 @@ enum StatusStage{
   StsComplete,///<!完成>
   StsNotready,///<!未就绪>
   StsNull
+};
+
+enum CmdType{
+  Test=0,              //测试
+  Takeoff=1,	         //起飞
+  Land=2,	             // 降落
+  Loiter=3,	         // 盘旋
+  Return=4,            // 返航
+
+
+  Point=5,             //指点飞行
+
+  CmdSetHome=6,        // 对准坐标原点
+  SetTargetLOc=7,      //设置目标位置信息
+  DoTask=8,            //执行任务
+  SetVideo=9,          //图片视频指令
+  GetFtpInfo=10,       //获取文件传输信息
+  GetID=11,            //
+
+  SyncTime=12,         //时间同步
+
+
+  SendHeartBeat=14,    //发送心跳
+  SetVehi=15,          ///<!设置载具类型>
+  SetImgCh=19,         ///<!设置图片通道>
+  Weapon=21,           ///<!武器控制>
+  Joystick=23,         ///<! 摇杆控制>
+  SetStage=128,        ///<!>
+  DesignAttackObj=129, ///<!打击指定目标>
+
+  HeartBeat=254,       ///<!心跳包
+
+};
+
+/**
+             * 指令回复中cmd 类型值
+            */
+enum CtrlType{
+  Cmd=0,        ///<!回复的是控制指令结果>
+  TraceAttack,  ///<!回复的是跟踪、打击结果>
+  JsonTask      ///<!json任务>
+};
+
+enum CmdStatus{
+  Success=0,      ///<!成功>
+  Failed=1,       ///<!失败>
 };

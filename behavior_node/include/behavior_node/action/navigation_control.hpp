@@ -3,27 +3,24 @@
 #include <string>
 
 #include <rclcpp/rclcpp.hpp>
-#include <behaviortree_cpp/action_node.h>
 
 #include <custom_msgs/srv/command_int.hpp>
+#include "base_nodes.hpp"
 
 // 导航控制节点
-class NavigationControl : public BT::StatefulActionNode {
+class NavigationControl : public StatefulActionBase<NavigationControl> {
  public:
-  NavigationControl(const std::string &name,
-                    const BT::NodeConfig &config,
-                    std::shared_ptr<rclcpp::Node> node);
+  NavigationControl(const std::string &name, const BT::NodeConfig &config, NodeDependencies deps)
+      : StatefulActionBase<NavigationControl>(name, config, deps) {}
 
   static BT::PortsList providedPorts();
 
   BT::NodeStatus onStart() override;
+
   BT::NodeStatus onRunning() override;
+
   void onHalted() override;
 
  private:
-
-  std::string service_name_{"inner/control/form_switch"};
-  std::shared_ptr<rclcpp::Node> node_;
-  rclcpp::Client<custom_msgs::srv::CommandInt>::SharedPtr client_;
   rclcpp::Client<custom_msgs::srv::CommandInt>::SharedFuture future_;
 };

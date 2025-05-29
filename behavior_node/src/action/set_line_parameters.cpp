@@ -2,24 +2,18 @@
 
 #include <log/Logger.hpp>
 
-#include "behavior_node/common/data_manager.hpp"
-#include "behavior_node/common/utility.hpp"
+#include <std_msgs/msg/float32.hpp>
+#include <std_msgs/msg/int32.hpp>
+#include <std_msgs/msg/u_int8.hpp>
+#include <geometry_msgs/msg/polygon.hpp>
+#include <std_msgs/msg/int64.hpp>
+#include <std_msgs/msg/u_int8_multi_array.hpp>
 
-SetLineParameters::SetLineParameters(const std::string &name,
-                                     const BT::NodeConfig &config,
-                                     std::shared_ptr<rclcpp::Node> node)
-    : BT::SyncActionNode(name, config), node_(node) {
-  pub_line_ = node->create_publisher<geometry_msgs::msg::Polygon>("inner/set/navline", 1);
-  pub_coll_dis_ = node->create_publisher<std_msgs::msg::Float32>("inner/set/dis_anti_collide", 1);
-  pub_arv_dis_ = node->create_publisher<std_msgs::msg::Float32>("inner/set/dis_arrive", 1);
-  pub_form_ = node->create_publisher<custom_msgs::msg::ParamShort>("inner/set/form", 1);
-  pub_grp_ = node->create_publisher<std_msgs::msg::UInt8>("inner/set/group", 1);
-  pub_loops_ = node->create_publisher<std_msgs::msg::Int32>("inner/set/line_loops", 1);
-  pub_spd_ = node->create_publisher<std_msgs::msg::Float32>("inner/set/form_spd", 1);
-  pub_vehicle_typ_ = node->create_publisher<std_msgs::msg::UInt8>("inner/set/vehicle_type", 1);
-  pub_ids_ = node->create_publisher<std_msgs::msg::UInt8MultiArray>("inner/information/group_ids", 1);
-  pub_offsets_ = node->create_publisher<geometry_msgs::msg::Polygon>("inner/information/group_offset", 1);
-}
+#include "behavior_node/data/ros_communication_manager.hpp"
+#include "behavior_node/data/ros_interface_definitions.hpp"
+#include "behavior_node/data/mission_context.hpp"
+#include "behavior_node/data/data_cache.hpp"
+#include "behavior_node/utils/utility.hpp"
 
 BT::PortsList SetLineParameters::providedPorts() {
   return {
@@ -35,13 +29,16 @@ BT::PortsList SetLineParameters::providedPorts() {
 }
 
 BT::NodeStatus SetLineParameters::tick() {
-  if (!getInput("type", set_type_)) {
+  SetContentType set_type = SetContentType::ALL;
+  if (!getInput("type", set_type)) {
     txtLog().error(THISMODULE "Missing 'type' input");
     return BT::NodeStatus::FAILURE;
   }
 
+  context()->setSetType(set_type);
+
   // 发布防撞距离
-  if (ANTI_DIS & set_type_) {
+  if (ANTI_DIS & set_type) {
     BT::Expected<float> anti_dis = getInput<float>("antiDis");
     if (!anti_dis) {
       txtLog().error(THISMODULE "Missing 'antiDis' input");
@@ -49,54 +46,52 @@ BT::NodeStatus SetLineParameters::tick() {
     }
     std_msgs::msg::Float32 msg;
     msg.data = anti_dis.value();
-    pub_coll_dis_->publish(msg); // 发布防撞距离
+    ros()->publish<std_msgs::msg::Float32>(ros_interface::topics::SET_ANTI_COLLISION_DIS, msg); // 发布防撞距离
   }
 
   // 发布循环次数
-  loops_ = DataManager::getInstance().getJsonParams("loops").get<int>();
-  if (LOOPS & set_type_) {
+  int loops = context()->getParameter("loops").get<int>();
+  if (LOOPS & set_type) {
     std_msgs::msg::Int32 msg;
-    msg.data = loops_;
-    pub_loops_->publish(msg); // 发布循环次数
+    msg.data = loops;
+    ros()->publish<std_msgs::msg::Int32>(ros_interface::topics::SET_LOOPS, msg); // 发布循环次数
   }
 
   // 发布载具类型
-  if (VEHICLE_TYP & set_type_) {
+  if (VEHICLE_TYP & set_type) {
     auto vehicle_type =
-        DataManager::getInstance().getJsonParams("vehiType").get<std::string>() == "多旋翼" ? VehicleType::Coper
-                                                                                            : VehicleType::FixWing;
-    DataManager::getInstance().setVehicleType(vehicle_type);
+        context()->getParameter("vehiType").get<std::string>() == "多旋翼" ? VehicleType::Coper : VehicleType::FixWing;
+    cache()->updateVehicleType(vehicle_type);
     std_msgs::msg::UInt8 msg;
     msg.data = vehicle_type;
-    pub_vehicle_typ_->publish(msg);
+    ros()->publish<std_msgs::msg::UInt8>(ros_interface::topics::SET_VEHICLE_TYPE, msg); // 发布载具类型
   }
 
   // 发布速度
-  if (SPD & set_type_) {
-    spd_ = DataManager::getInstance().getJsonParams("spd").get<float>();
+  if (SPD & set_type) {
+    float speed = context()->getParameter("speed").get<float>();
     std_msgs::msg::Float32 msg;
-    msg.data = spd_;
-    pub_spd_->publish(msg); // 发布速度
+    msg.data = speed;
+    ros()->publish<std_msgs::msg::Float32>(ros_interface::topics::SET_SPEED, msg); // 发布速度
   }
 
   // 发布到点距离
-  if (ARV_DIS & set_type_) {
-    arv_dis_ = DataManager::getInstance().getJsonParams("arvDis").get<float>();
+  if (ARV_DIS & set_type) {
+    float arv_dis = context()->getParameter("arvDis").get<float>();
     std_msgs::msg::Float32 msg;
-    msg.data = arv_dis_;
-    pub_arv_dis_->publish(msg); // 发布到点距离
+    msg.data = arv_dis;
+    ros()->publish<std_msgs::msg::Float32>(ros_interface::topics::SET_ARRIVAL_DIS, msg); // 发布到点距离
   }
 
   // 发布航点信息,区域搜索时参数使用areaPoints，航线飞行时参数使用waypoints
-  if (WAY_PTS & set_type_) {
-    std::string
-        wp_param_name = DataManager::getInstance().getActionName() == "SrchViaLine" ? "areaPoints" : "wayPoints";
-    auto wp_json = DataManager::getInstance().getJsonParams(wp_param_name);
+  if (WAY_PTS & set_type) {
+    geometry_msgs::msg::Polygon way_points;
+    std::string wp_param_name = context()->getAction() == "SrchViaLine" ? "areaPoints" : "wayPoints";
+    auto wp_json = context()->getParameter(wp_param_name);
     if (wp_json.is_array()) {
-      way_pts_.points.clear();
-      way_pts_.points.reserve(wp_json.size());
+      way_points.points.clear();
+      way_points.points.reserve(wp_json.size());
       for (auto &wp_json_item : wp_json) {
-
         // 如果点符合格式，则添加到航点列表
         if (!wp_json_item.is_object() || !wp_json_item.contains("x_lat") || !wp_json_item.contains("y_lon")
             || !wp_json_item.contains("z_alt")) {
@@ -107,26 +102,28 @@ BT::NodeStatus SetLineParameters::tick() {
         pt.y = wp_json_item["y_lon"].get<float>();
         pt.z = wp_json_item["z_alt"].get<float>();
         utility::checkZValid(pt.z);
-        way_pts_.points.push_back(pt);
+        way_points.points.push_back(pt);
       }
       // 点类型为loc还是gps
-      bool is_loc = DataManager::getInstance().getJsonParams("pointTag").get<std::string>() == "loc";
+      bool is_loc = context()->getParameter("pointTag").get<std::string>() == "loc";
       // 如果点为gps，则转换为loc坐标
-      if (!is_loc) utility::gps2loc(DataManager::getInstance().getHome(), way_pts_.points);
+      if (!is_loc) utility::gps2loc(context()->getHomePoint(), way_points.points);
     }
-    pub_line_->publish(way_pts_);
+    ros()->publish<geometry_msgs::msg::Polygon>(ros_interface::topics::SET_NAVLINE, way_points); // 发布航点信息
   }
 
 
 
   // 后续代码待actionmanager处再重新编写
-  // if (FORM & set_type_) { pub_form_->publish(form_); }
+  // if (FORM & set_type) { pub_form_->publish(form_); }
   // 发布分组信息, 目前未见grp_变量被使用
-  if (GROUP & set_type_) { pub_grp_->publish(grp_); }
+//  if (GROUP & set_type) { pub_grp_->publish(grp_); }  ros_interface::topics::SET_GROUP
 
   // 发布分组偏移信息, 目前未见offsets_变量被使用
-  if (IDS & set_type_) { pub_ids_->publish(ids_); }
-  if (OFFSETS & set_type_) { pub_offsets_->publish(offsets_); }
+//  if (IDS & set_type) { pub_ids_->publish(ids_); }
+//  if (OFFSETS & set_type) { pub_offsets_->publish(offsets_); }
+
+//ros_interface::topics::SET_FORMATION
 
   return BT::NodeStatus::SUCCESS;
 

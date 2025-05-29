@@ -1,13 +1,9 @@
 #include "behavior_node/condition/check_arrive_destination.hpp"
 
 #include <log/Logger.hpp>
-#include <custom_msgs/msg/offboard_ctrl.hpp>
-#include "behavior_node/common/utility.hpp"
-#include "behavior_node/common/data_manager.hpp"
 
-CheckArriveDestination::CheckArriveDestination(const std::string &name, const BT::NodeConfig &config)
-    : BT::ConditionNode(name, config) {
-}
+#include "behavior_node/utils/utility.hpp"
+#include "behavior_node/data/data_cache.hpp"
 
 BT::PortsList CheckArriveDestination::providedPorts() {
   return {
@@ -26,16 +22,18 @@ BT::NodeStatus CheckArriveDestination::tick() {
   getInput("arvdis", arrive_distance);
   getInput("onlyz", only_check_z);
 
-  custom_msgs::msg::SimpleVehicle current = DataManager::getInstance().getSimpleVehicle();
+  if (!cache()->isVehicleStateValid()) return BT::NodeStatus::FAILURE;
+
+  auto current = cache()->getVehicleState();
   if (only_check_z) {
-    if (utility::getDisFrmLoc(current.x, current.y, target.x, target.y) < arrive_distance) {
+    if (utility::getDisFrmLoc(current->x, current->y, target.x, target.y) < arrive_distance) {
       txtLog().info(THISMODULE "arrive destination");
       return BT::NodeStatus::SUCCESS;
     }
     txtLog().info(THISMODULE "not arrive destination yet");
     return BT::NodeStatus::FAILURE;
   } else {
-    if (utility::getDisFrmLoc(current.x, current.y, current.z, target.x, target.y, target.z) < arrive_distance) {
+    if (utility::getDisFrmLoc(current->x, current->y, current->z, target.x, target.y, target.z) < arrive_distance) {
       txtLog().info(THISMODULE "arrive destination");
       return BT::NodeStatus::SUCCESS;
     }

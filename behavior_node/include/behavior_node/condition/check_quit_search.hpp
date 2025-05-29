@@ -5,11 +5,13 @@
 
 #include <behaviortree_cpp/condition_node.h>
 #include <custom_msgs/msg/object_computation.hpp>
+#include "base_nodes.hpp"
 
 // 检查是否退出搜索节点
-class CheckQuitSearch : public BT::ConditionNode {
+class CheckQuitSearch : public ConditionBase<CheckQuitSearch> {
  public:
-  CheckQuitSearch(const std::string &name, const BT::NodeConfig &config): BT::ConditionNode(name, config){};
+  CheckQuitSearch(const std::string &name, const BT::NodeConfig &config, NodeDependencies deps)
+      : ConditionBase<CheckQuitSearch>(name, config, deps) {};
 
   static BT::PortsList providedPorts();
 

@@ -3,14 +3,15 @@
 #include <string>
 
 #include <rclcpp/rclcpp.hpp>
-#include <behaviortree_cpp/action_node.h>
 
 #include <custom_msgs/srv/command_bool.hpp>
+#include "base_nodes.hpp"
 
 // 锁定控制节点
-class LockControl : public BT::StatefulActionNode {
+class LockControl : public StatefulActionBase<LockControl> {
  public:
-  LockControl(const std::string &name, const BT::NodeConfig &config,  std::shared_ptr<rclcpp::Node> node);
+  LockControl(const std::string &name, const BT::NodeConfig &config, NodeDependencies deps)
+      : StatefulActionBase<LockControl>(name, config, deps) {}
 
   static BT::PortsList providedPorts();
 
@@ -19,11 +20,6 @@ class LockControl : public BT::StatefulActionNode {
   void onHalted() override;
 
  private:
-  std::string service_name_{"inner/control/lock_unlock"};
-
-  int target_state_;
-  std::shared_ptr<rclcpp::Node> node_;
-  rclcpp::Client<custom_msgs::srv::CommandBool>::SharedPtr client_;
   rclcpp::Client<custom_msgs::srv::CommandBool>::SharedFuture future_;
 };
 

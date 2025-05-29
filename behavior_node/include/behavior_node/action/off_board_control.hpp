@@ -6,11 +6,13 @@
 #include <behaviortree_cpp/action_node.h>
 
 #include <custom_msgs/msg/offboard_ctrl.hpp>
+#include "base_nodes.hpp"
 
 // 外部控制节点
-class OffBoardControl : public BT::SyncActionNode {
+class OffBoardControl : public SyncActionBase<OffBoardControl> {
  public:
-  OffBoardControl(const std::string &name, const BT::NodeConfig &config, const rclcpp::Node::SharedPtr& node);
+  OffBoardControl(const std::string &name, const BT::NodeConfig &config, NodeDependencies deps)
+      : SyncActionBase<OffBoardControl>(name, config, deps) {}
 
   static BT::PortsList providedPorts();
 

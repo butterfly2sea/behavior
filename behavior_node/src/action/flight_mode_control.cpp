@@ -4,13 +4,12 @@
 
 #include "behavior_node/common/data_manager.hpp"
 
-FlightModeControl::FlightModeControl(const std::string &name,
-                                     const BT::NodeConfig &config,
-                                     std::shared_ptr<rclcpp::Node> node)
-    : BT::StatefulActionNode(name, config),
-      node_(node),
-      client_(node->create_client<custom_msgs::srv::CommandLong>(service_name_)) {
-}
+#include "behavior_node/data/ros_interface_definitions.hpp"
+
+#include "behavior_node/data/ros_communication_manager.hpp"
+#include "behavior_node/data/mission_context.hpp"
+
+
 
 BT::PortsList FlightModeControl::providedPorts() {
   return {
@@ -33,8 +32,8 @@ BT::NodeStatus FlightModeControl::onStart() {
     return BT::NodeStatus::FAILURE;
   }
   // 从地面站的控制指令获取设置高度参数
-  float takeoff_z = DataManager::getInstance().getJsonParams(altName).get<float>();
-  if (client_->wait_for_service(std::chrono::milliseconds(50)) && client_->service_is_ready()) {
+  float takeoff_z = context()->getParameter(altName).get<float>();
+  if (ros()->isServiceReady(ros_interface::services::SET_FLIGHT_MODE)) {
     txtLog().info(THISMODULE "Service is ready");
     auto req = std::make_shared<custom_msgs::srv::CommandLong::Request>();
     BT::Expected<float> param7 = getInput<float>("param7");
@@ -46,14 +45,18 @@ BT::NodeStatus FlightModeControl::onStart() {
     if (target_mode != int(FlightMode::Unknown)) {
       req->command = target_mode;
     }
-    future_ = client_->async_send_request(req);
+    txtLog().info(THISMODULE "Sending command: %i param7: %f", req->command, req->param7);
+    future_ = ros()->callService<custom_msgs::srv::CommandLong>(ros_interface::services::SET_FLIGHT_MODE, req);
     return BT::NodeStatus::RUNNING;
   }
   return BT::NodeStatus::FAILURE;
 }
 
 BT::NodeStatus FlightModeControl::onRunning() {
-  if (future_.valid() && future_.wait_for(std::chrono::milliseconds(50)) == std::future_status::ready) {
+  if (!future_.valid()) {
+    return BT::NodeStatus::FAILURE;
+  }
+  if (future_.wait_for(std::chrono::milliseconds(50)) == std::future_status::ready) {
     auto result = future_.get();
     if (result->success) {
       txtLog().info(THISMODULE "Mode change success");
@@ -68,5 +71,6 @@ BT::NodeStatus FlightModeControl::onRunning() {
 }
 
 void FlightModeControl::onHalted() {
-  RCLCPP_INFO(rclcpp::get_logger("FlightModeControl"), "Mode change halted");
+  txtLog().info(THISMODULE "Mode change halted");
 }
+

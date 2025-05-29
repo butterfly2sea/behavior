@@ -2,13 +2,13 @@
 
 #include <string>
 
-#include <behaviortree_cpp/condition_node.h>
-
+#include "base_nodes.hpp"
 
 // 检查是否到达目标点节点
-class CheckArriveDestination : public BT::ConditionNode {
+class CheckArriveDestination : public ConditionBase<CheckArriveDestination> {
  public:
-  CheckArriveDestination(const std::string &name, const BT::NodeConfig &config);
+  CheckArriveDestination(const std::string &name, const BT::NodeConfig &config, NodeDependencies deps)
+      : ConditionBase<CheckArriveDestination>(name, config, deps) {}
 
   static BT::PortsList providedPorts();
 

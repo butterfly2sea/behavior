@@ -2,13 +2,10 @@
 
 #include <log/Logger.hpp>
 
-#include "behavior_node/common/base_enum.hpp"
+#include "behavior_node/data/base_enum.hpp"
 
-LockControl::LockControl(const std::string &name, const BT::NodeConfig &config, std::shared_ptr<rclcpp::Node> node)
-    : BT::StatefulActionNode(name, config),
-      node_(node),
-      client_(node->create_client<custom_msgs::srv::CommandBool>(service_name_)) {
-}
+#include "behavior_node/data/ros_communication_manager.hpp"
+#include "behavior_node/data/ros_interface_definitions.hpp"
 
 BT::PortsList LockControl::providedPorts() {
   return {
@@ -23,11 +20,11 @@ BT::NodeStatus LockControl::onStart() {
     txtLog().error(THISMODULE "Failed to get input state");
     return BT::NodeStatus::FAILURE;
   }
-  if (client_->wait_for_service(std::chrono::milliseconds(50)) && client_->service_is_ready()) {
+  if (ros()->isServiceReady(ros_interface::services::LOCK_UNLOCK)) {
     txtLog().info(THISMODULE "Service is ready");
     auto req = std::make_shared<custom_msgs::srv::CommandBool::Request>();
     req->value = (target_state == LockState::UNLOCK); // 解锁为true
-    future_ = client_->async_send_request(req);
+    future_ = ros()->callService<custom_msgs::srv::CommandBool>(ros_interface::services::LOCK_UNLOCK, req);
     return BT::NodeStatus::RUNNING;
   }
   return BT::NodeStatus::FAILURE;
