@@ -6,13 +6,13 @@ if (NOT CMAKE_C_STANDARD)
     set(CMAKE_C_STANDARD 99)
 endif ()
 
-# Default to C++14
+# Default to C++17
 if (NOT CMAKE_CXX_STANDARD)
     set(CMAKE_CXX_STANDARD 17)
 endif ()
 
 if (CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    add_compile_options(-Wall -Wextra -Wpedantic)
+    add_compile_options(-Wall -Wextra -Wpedantic -O2)
 endif ()
 
 # find dependencies
@@ -26,30 +26,23 @@ find_package(custom_msgs REQUIRED)
 find_package(mavros_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 
+# 收集源文件
 file(GLOB_RECURSE ACTION_SRC "src/action/*.cpp")
-file(GLOB_RECURSE COMMON_SRC "src/common/*.cpp")
-file(GLOB_RECURSE COMM_SRC "src/communication/*.cpp")
 file(GLOB_RECURSE CONDITION_SRC "src/condition/*.cpp")
-file(GLOB_RECURSE INFO_SRC "src/information/*.cpp")
 
-include_directories(
-        include
-        ${rclcpp_INCLUDE_DIRS}
-        ${behaviortree_cpp_INCLUDE_DIRS}
-)
+include_directories(include)
 
+# 创建可执行文件
 add_executable(behavior_node
         src/behavior_node.cpp
         ${ACTION_SRC}
         ${CONDITION_SRC}
-        ${COMMON_SRC}
-        ${COMM_SRC}
-        ${INFO_SRC}
 )
 
 target_include_directories(behavior_node PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:include>)
+        $<INSTALL_INTERFACE:include>
+)
 
 ament_target_dependencies(behavior_node
         rclcpp
@@ -62,9 +55,11 @@ ament_target_dependencies(behavior_node
         geometry_msgs
 )
 
+# 安装目标
 install(TARGETS behavior_node
         DESTINATION lib/${PROJECT_NAME})
 
+# 安装行为树文件
 install(DIRECTORY trees/
         DESTINATION lib/${PROJECT_NAME}/trees
         FILES_MATCHING PATTERN "*.xml"
@@ -72,12 +67,6 @@ install(DIRECTORY trees/
 
 if (BUILD_TESTING)
     find_package(ament_lint_auto REQUIRED)
-    # the following line skips the linter which checks for copyrights
-    # uncomment the line when a copyright and license is not present in all source files
-    #set(ament_cmake_copyright_FOUND TRUE)
-    # the following line skips cpplint (only works in a git repo)
-    # uncomment the line when this package is not in a git repo
-    #set(ament_cmake_cpplint_FOUND TRUE)
     ament_lint_auto_find_test_dependencies()
 endif ()
 

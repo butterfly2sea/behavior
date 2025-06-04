@@ -5,7 +5,7 @@
 
 #include <behaviortree_cpp/condition_node.h>
 #include <custom_msgs/msg/object_computation.hpp>
-#include "base_nodes.hpp"
+#include "behavior_node/base_nodes.hpp"
 
 // 检查是否退出搜索节点
 class CheckQuitSearch : public ConditionBase<CheckQuitSearch> {

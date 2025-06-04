@@ -5,7 +5,7 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <custom_msgs/srv/command_int.hpp>
-#include "base_nodes.hpp"
+#include "behavior_node/base_nodes.hpp"
 
 // 导航控制节点
 class NavigationControl : public StatefulActionBase<NavigationControl> {

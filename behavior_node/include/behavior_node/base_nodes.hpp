@@ -1,4 +1,3 @@
-// base_nodes.hpp
 #pragma once
 
 #include <behaviortree_cpp/bt_factory.h>
@@ -7,15 +6,13 @@
 
 // 前向声明
 class ROSCommunicationManager;
-
-class DataCache;
-
+class Cache;
 class MissionContext;
 
 // 依赖注入容器
 struct NodeDependencies {
   std::shared_ptr<ROSCommunicationManager> ros_comm;
-  std::shared_ptr<DataCache> data_cache;
+  std::shared_ptr<Cache> data_cache;
   std::shared_ptr<MissionContext> mission_context;
 };
 
@@ -35,7 +32,7 @@ class DependencyAware {
   auto context() const { return deps_.mission_context; }
 };
 
-// 通用节点基类模板（CRTP模式）
+// 通用节点基类模板
 template<typename Derived, typename BTNodeType>
 class NodeBase : public BTNodeType, public DependencyAware {
  public:

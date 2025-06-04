@@ -6,7 +6,7 @@
 #include <behaviortree_cpp/action_node.h>
 
 #include <custom_msgs/msg/offboard_ctrl.hpp>
-#include "base_nodes.hpp"
+#include "behavior_node/base_nodes.hpp"
 
 // 外部控制节点
 class OffBoardControl : public SyncActionBase<OffBoardControl> {

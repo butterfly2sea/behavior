@@ -7,7 +7,7 @@
 
 #include <geometry_msgs/msg/point32.hpp>
 
-#include "base_nodes.hpp"
+#include "behavior_node/base_nodes.hpp"
 
 // 设置目标点节点
 class SetDestinationPoint : public SyncActionBase<SetDestinationPoint> {

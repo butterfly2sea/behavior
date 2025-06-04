@@ -51,8 +51,6 @@ constexpr const char *SET_FLIGHT_MODE = "inner/control/set_flymode";
 constexpr const char *LOCK_UNLOCK = "inner/control/lock_unlock";
 constexpr const char *FORMATION_SWITCH = "inner/control/form_switch";
 constexpr const char *INFO_RTSP_URL = "inner/get/rtsp_url";
-
-// 补充的服务
 constexpr const char *ARM_DISARM = "inner/control/arm_disarm";
 constexpr const char *EMERGENCY_STOP = "inner/control/emergency_stop";
 constexpr const char *MISSION_CONTROL = "inner/control/mission_control";

@@ -2,7 +2,7 @@
 
 #include <string>
 
-#include "base_nodes.hpp"
+#include "behavior_node/base_nodes.hpp"
 
 // 检查是否到达目标点节点
 class CheckArriveDestination : public ConditionBase<CheckArriveDestination> {

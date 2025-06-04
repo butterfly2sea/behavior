@@ -6,7 +6,7 @@
 #include <behaviortree_cpp/action_node.h>
 
 #include <custom_msgs/srv/command_long.hpp>
-#include "base_nodes.hpp"
+#include "behavior_node/base_nodes.hpp"
 
 // 飞行模式控制节点
 class FlightModeControl : public StatefulActionBase<FlightModeControl> {

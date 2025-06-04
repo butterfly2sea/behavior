@@ -6,7 +6,7 @@
 
 #include "behavior_node/data/base_enum.hpp"
 
-#include "base_nodes.hpp"
+#include "behavior_node/base_nodes.hpp"
 
 // 设置线路参数节点
 class SetLineParameters : public SyncActionBase<SetLineParameters> {

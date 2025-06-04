@@ -1,186 +1,247 @@
 #pragma once
 
+#include <mutex>
+#include <atomic>
+
 #include <nlohmann/json.hpp>
-
 #include <geometry_msgs/msg/point.hpp>
+#include <geometry_msgs/msg/polygon.hpp>
 
-#include <shared_mutex>
-#include <custom_msgs/msg/dis_target.hpp>
-#include <std_msgs/msg/u_int8_multi_array.hpp>
+#include "behavior_node/data/base_enum.hpp"
+#include "behavior_node/core/types.hpp"
 
-// mission_context.hpp
 class MissionContext {
  private:
-  std::string current_action_; // 当前行为
+  // 原子操作的简单数据
+  std::atomic<uint8_t> target_id_{0};
+  std::atomic<int> stage_sn_{-1};
+  std::atomic<int> group_id_{-1};
+  std::atomic<bool> mission_active_{false};
+  std::atomic<SetContentType> set_type_{SetContentType::TWO_SWITCH};
 
-  std::unordered_map<std::string, nlohmann::json> parameters_; // json参数
+  // 复杂数据类型使用轻量级mutex保护
+  mutable std::mutex data_mutex_;
+  std::string current_action_;
+  std::string current_tree_name_;
+  std::unordered_map<std::string, nlohmann::json> parameters_;
+  std::unordered_map<std::string, nlohmann::json> triggers_;
+  std::vector<uint8_t> group_members_;
+  geometry_msgs::msg::Polygon offsets_;
+  geometry_msgs::msg::Polygon way_pts_;
+  geometry_msgs::msg::Point home_point_;
+  std::set<uint8_t> excluded_ids_;
+  behavior_core::SystemState system_state_{behavior_core::SystemState::INITIALIZING};
 
-  std::unordered_map<std::string, nlohmann::json> triggers_; // json触发条件
-
-  int group_id_; // 组号
-
-  std::vector<uint8_t> group_members_; // 组成员
-
-  geometry_msgs::msg::Polygon offsets_; // 编组偏移量
-
-  geometry_msgs::msg::Polygon way_pts_;//航线点
-
-  geometry_msgs::msg::Point home_point_; // Home位置
-
-  uint8_t target_id_ = 0; // 目标ID
-
-  SetContentType set_type_ = SetContentType::TWO_SWITCH; // 设置类型
-
-  int stage_sn_ = -1; // 当前阶段序号
-
-  std::set<uint8_t> excluded_ids_; // 排除的ID
-
-  custom_msgs::msg::DisTarget current_navigation_info_{};// 当前目标航点信息
-
-  int pre_nav_id_{-1}; // 上一个航点id
-
-  mutable std::shared_mutex mutex_; // 互斥锁
+  rclcpp::Logger logger_;
 
  public:
-
-  // 线程安全的访问方法
-  void setAction(const std::string &action) {
-    std::unique_lock lock(mutex_);
-    current_action_ = action;
+  explicit MissionContext(const std::string& logger_name = "MissionContext")
+      : logger_(rclcpp::get_logger(logger_name)) {
+    txtLog().info(THISMODULE "Initialized mission context");
   }
 
-  std::string getAction() const {
-    std::shared_lock lock(mutex_);
-    return current_action_;
-  }
-
-  void setParameter(const std::string &key, const nlohmann::json &value) {
-    std::unique_lock lock(mutex_);
-    parameters_[key] = value;
-  }
-
-  nlohmann::json getParameter(const std::string &key) {
-    std::shared_lock lock(mutex_);
-    return parameters_.count(key) > 0 ? parameters_[key] : nlohmann::json{};
-  }
-
-  void setGroup(int group_id) {
-    std::unique_lock lock(mutex_);
-    group_id_ = group_id;
-  }
-
-  int getGroup() const {
-    std::shared_lock lock(mutex_);
-    return group_id_;
-  }
-
-  void setOffsets(const geometry_msgs::msg::Polygon &offsets) {
-    std::unique_lock lock(mutex_);
-    offsets_ = offsets;
-  }
-
-  geometry_msgs::msg::Polygon getOffsets() const {
-    std::shared_lock lock(mutex_);
-    return offsets_;
-  }
-
-  void setWaypoints(const geometry_msgs::msg::Polygon &way_pts) {
-    std::unique_lock lock(mutex_);
-    way_pts_ = way_pts;
-  }
-
-  geometry_msgs::msg::Polygon getWaypoints() const {
-    std::shared_lock lock(mutex_);
-    return way_pts_;
-  }
-
-  void setHomePoint(const geometry_msgs::msg::Point &home_point) {
-    std::unique_lock lock(mutex_);
-    home_point_ = home_point;
-  }
-
-  geometry_msgs::msg::Point getHomePoint() const {
-    std::shared_lock lock(mutex_);
-    return home_point_;
-  }
-
+  // 原子操作接口
   void setTargetId(uint8_t id) {
-    std::unique_lock lock(mutex_);
-    target_id_ = id;
+    target_id_.store(id, std::memory_order_relaxed);
+    RCLCPP_DEBUG(logger_, "Set target ID: %d", id);
   }
-
   uint8_t getTargetId() const {
-    std::shared_lock lock(mutex_);
-    return target_id_;
-  }
-
-  void setSetType(SetContentType type) {
-    std::unique_lock lock(mutex_);
-    set_type_ = type;
-  }
-
-  SetContentType getSetType() const {
-    std::shared_lock lock(mutex_);
-    return set_type_;
+    return target_id_.load(std::memory_order_relaxed);
   }
 
   void setStage(int stage) {
-    std::unique_lock lock(mutex_);
-    stage_sn_ = stage;
+    stage_sn_.store(stage, std::memory_order_relaxed);
+    RCLCPP_DEBUG(logger_, "Set stage: %d", stage);
   }
-
   int getStage() const {
-    std::shared_lock lock(mutex_);
-    return stage_sn_;
+    return stage_sn_.load(std::memory_order_relaxed);
   }
 
   void setGroupId(int group_id) {
-    std::unique_lock lock(mutex_);
-    group_id_ = group_id;
+    group_id_.store(group_id, std::memory_order_relaxed);
+    RCLCPP_DEBUG(logger_, "Set group ID: %d", group_id);
   }
-
   int getGroupId() const {
-    std::shared_lock lock(mutex_);
-    return group_id_;
+    return group_id_.load(std::memory_order_relaxed);
   }
 
-  void setGroupMembers(const std::vector<uint8_t> &members) {
-    std::unique_lock lock(mutex_);
+  void setMissionActive(bool active) {
+    mission_active_.store(active, std::memory_order_relaxed);
+    txtLog().info(THISMODULE "Mission %s", active ? "activated" : "deactivated");
+  }
+  bool isMissionActive() const {
+    return mission_active_.load(std::memory_order_relaxed);
+  }
+
+  void setSetType(SetContentType type) {
+    set_type_.store(type, std::memory_order_relaxed);
+  }
+  SetContentType getSetType() const {
+    return set_type_.load(std::memory_order_relaxed);
+  }
+
+  // 轻量级mutex保护的接口
+  void setAction(const std::string& action) {
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    current_action_ = action;
+    txtLog().info(THISMODULE "Set action: %s", action.c_str());
+  }
+
+  std::string getAction() const {
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    return current_action_;
+  }
+
+  void setCurrentTreeName(const std::string& tree_name) {
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    current_tree_name_ = tree_name;
+    txtLog().info(THISMODULE "Set current tree: %s", tree_name.c_str());
+  }
+
+  std::string getCurrentTreeName() const {
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    return current_tree_name_;
+  }
+
+  // 参数管理
+  void setParameter(const std::string& key, const nlohmann::json& value) {
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    parameters_[key] = value;
+    RCLCPP_DEBUG(logger_, "Set parameter: %s", key.c_str());
+  }
+
+  nlohmann::json getParameter(const std::string& key) const {
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    auto it = parameters_.find(key);
+    return it != parameters_.end() ? it->second : nlohmann::json{};
+  }
+
+  std::unordered_map<std::string, nlohmann::json> getAllParameters() const {
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    return parameters_;
+  }
+
+  bool hasParameter(const std::string& key) const {
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    return parameters_.find(key) != parameters_.end();
+  }
+
+  // 触发器管理
+  void setTrigger(const std::string& name, const nlohmann::json& value) {
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    triggers_[name] = value;
+    RCLCPP_DEBUG(logger_, "Set trigger: %s", name.c_str());
+  }
+
+  nlohmann::json getTrigger(const std::string& name) const {
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    auto it = triggers_.find(name);
+    return it != triggers_.end() ? it->second : nlohmann::json{};
+  }
+
+  // 组管理
+  void setGroupMembers(const std::vector<uint8_t>& members) {
+    std::lock_guard<std::mutex> lock(data_mutex_);
     group_members_ = members;
+    txtLog().info(THISMODULE "Set group members, count: %zu", members.size());
   }
 
   std::vector<uint8_t> getGroupMembers() const {
-    std::shared_lock lock(mutex_);
+    std::lock_guard<std::mutex> lock(data_mutex_);
     return group_members_;
   }
 
-  void setExcludedIds(const std::set<uint8_t> &ids) {
-    std::unique_lock lock(mutex_);
+  // Home点管理
+  void setHomePoint(const geometry_msgs::msg::Point& home_point) {
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    home_point_ = home_point;
+    txtLog().info(THISMODULE "Set home point: (%.6f, %.6f, %.2f)",
+                home_point.x, home_point.y, home_point.z);
+  }
+
+  geometry_msgs::msg::Point getHomePoint() const {
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    return home_point_;
+  }
+
+  // 偏移量管理
+  void setOffsets(const geometry_msgs::msg::Polygon& offsets) {
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    offsets_ = offsets;
+    RCLCPP_DEBUG(logger_, "Set offsets, count: %zu", offsets.points.size());
+  }
+
+  geometry_msgs::msg::Polygon getOffsets() const {
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    return offsets_;
+  }
+
+  // 航点管理
+  void setWaypoints(const geometry_msgs::msg::Polygon& way_pts) {
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    way_pts_ = way_pts;
+    txtLog().info(THISMODULE "Set waypoints, count: %zu", way_pts.points.size());
+  }
+
+  geometry_msgs::msg::Polygon getWaypoints() const {
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    return way_pts_;
+  }
+
+  // 排除ID管理
+  void setExcludedIds(const std::set<uint8_t>& ids) {
+    std::lock_guard<std::mutex> lock(data_mutex_);
     excluded_ids_ = ids;
+    RCLCPP_DEBUG(logger_, "Set excluded IDs, count: %zu", ids.size());
   }
 
   void addExcludedId(uint8_t id) {
-    std::unique_lock lock(mutex_);
+    std::lock_guard<std::mutex> lock(data_mutex_);
     excluded_ids_.insert(id);
+    RCLCPP_DEBUG(logger_, "Added excluded ID: %d", id);
   }
 
   void clearExcludedIds() {
-    std::unique_lock lock(mutex_);
+    std::lock_guard<std::mutex> lock(data_mutex_);
     excluded_ids_.clear();
+    RCLCPP_DEBUG(logger_, "Cleared excluded IDs");
   }
 
-  void setTrigger(const std::string &name, const nlohmann::json &value) {
-    std::unique_lock lock(mutex_);
-    triggers_[name] = value;
+  std::set<uint8_t> getExcludedIds() const {
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    return excluded_ids_;
   }
 
+  // 系统状态管理
+  void setSystemState(behavior_core::SystemState state) {
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    system_state_ = state;
+    txtLog().info(THISMODULE "System state changed to: %d", static_cast<int>(state));
+  }
+
+  behavior_core::SystemState getSystemState() const {
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    return system_state_;
+  }
+
+  // 清理操作
   void clear() {
-    std::unique_lock lock(mutex_);
+    // 重置原子变量
+    target_id_.store(0, std::memory_order_relaxed);
+    stage_sn_.store(-1, std::memory_order_relaxed);
+    group_id_.store(-1, std::memory_order_relaxed);
+    mission_active_.store(false, std::memory_order_relaxed);
+    set_type_.store(SetContentType::TWO_SWITCH, std::memory_order_relaxed);
+
+    // 清理复杂数据
+    std::lock_guard<std::mutex> lock(data_mutex_);
     current_action_.clear();
+    current_tree_name_.clear();
     parameters_.clear();
     triggers_.clear();
-    stage_sn_ = -1;
     group_members_.clear();
     excluded_ids_.clear();
+
+    txtLog().info(THISMODULE "Cleared mission context");
   }
 };

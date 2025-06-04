@@ -2,10 +2,7 @@
 
 #include <log/Logger.hpp>
 
-#include "behavior_node/common/data_manager.hpp"
-
 #include "behavior_node/data/ros_interface_definitions.hpp"
-
 #include "behavior_node/data/ros_communication_manager.hpp"
 #include "behavior_node/data/mission_context.hpp"
 

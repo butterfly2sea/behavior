@@ -5,7 +5,7 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <custom_msgs/srv/command_bool.hpp>
-#include "base_nodes.hpp"
+#include "behavior_node/base_nodes.hpp"
 
 // 锁定控制节点
 class LockControl : public StatefulActionBase<LockControl> {
