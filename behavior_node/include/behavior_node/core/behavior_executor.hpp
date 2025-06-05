@@ -4,8 +4,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <atomic>
 #include <chrono>
-#include <memory>
-#include <utility>
+#include <log/Logger.hpp>
 
 #include "behavior_node/core/types.hpp"
 #include "behavior_node/core/message_queue.hpp"
@@ -42,7 +41,6 @@ class BehaviorExecutor {
   std::chrono::milliseconds tick_interval_{50}; // 20Hz
   std::chrono::milliseconds message_check_interval_{10}; // 100Hz
 
-  rclcpp::Logger logger_;
 
   // 依赖项
   std::shared_ptr<ROSCommunicationManager> ros_comm_;
@@ -53,12 +51,10 @@ class BehaviorExecutor {
   BehaviorExecutor(
       rclcpp::Node::SharedPtr node,
       std::shared_ptr<behavior_core::MessageQueue> msg_queue,
-      std::string tree_dir = "trees",
-      const std::string &logger_name = "BehaviorExecutor")
+      std::string tree_dir = "trees")
       : node_(std::move(node)),
         message_queue_(std::move(msg_queue)),
-        tree_directory_(std::move(tree_dir)),
-        logger_(rclcpp::get_logger(logger_name)) {
+        tree_directory_(std::move(tree_dir)){
 
     blackboard_ = BT::Blackboard::create();
     last_tick_time_ = std::chrono::steady_clock::now();
@@ -98,7 +94,7 @@ class BehaviorExecutor {
 
   void initialize() {
     if (is_initialized_.load()) {
-      RCLCPP_WARN(logger_, "BehaviorExecutor already initialized");
+      txtLog().warnning(THISMODULE "BehaviorExecutor already initialized");
       return;
     }
 
@@ -279,7 +275,7 @@ class BehaviorExecutor {
       auto execution_ms = std::chrono::duration_cast<std::chrono::milliseconds>(execution_time);
 
       if (execution_ms > tick_interval_) {
-        RCLCPP_WARN(logger_, "Tree tick took %ld ms, longer than interval %ld ms",
+        txtLog().warnning(THISMODULE "Tree tick took %ld ms, longer than interval %ld ms",
                     execution_ms.count(), tick_interval_.count());
       }
 
@@ -321,7 +317,7 @@ class BehaviorExecutor {
         }
 
         default: {
-          RCLCPP_WARN(logger_, "Unknown behavior command: %d", static_cast<int>(msg.command));
+          txtLog().warnning(THISMODULE "Unknown behavior command: %d", static_cast<int>(msg.command));
           break;
         }
       }
@@ -333,7 +329,7 @@ class BehaviorExecutor {
       txtLog().info(THISMODULE "Behavior tree completed successfully");
       onTreeCompleted(true);
     } else if (status == BT::NodeStatus::FAILURE) {
-      RCLCPP_WARN(logger_, "Behavior tree failed");
+      txtLog().warnning(THISMODULE "Behavior tree failed");
       onTreeCompleted(false);
     }
   }

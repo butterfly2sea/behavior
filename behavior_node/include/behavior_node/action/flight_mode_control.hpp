@@ -3,9 +3,8 @@
 #include <string>
 
 #include <rclcpp/rclcpp.hpp>
-#include <behaviortree_cpp/action_node.h>
-
 #include <custom_msgs/srv/command_long.hpp>
+
 #include "behavior_node/base_nodes.hpp"
 
 // 飞行模式控制节点

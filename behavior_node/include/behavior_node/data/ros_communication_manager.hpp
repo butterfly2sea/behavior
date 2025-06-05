@@ -14,6 +14,7 @@
 // ROS消息类型
 #include <std_msgs/msg/float32.hpp>
 #include <std_msgs/msg/u_int8.hpp>
+#include <std_msgs/msg/int32.hpp>
 #include <std_msgs/msg/string.hpp>
 #include <std_msgs/msg/u_int8_multi_array.hpp>
 #include <geometry_msgs/msg/polygon.hpp>
@@ -28,6 +29,7 @@
 #include <custom_msgs/msg/multispectral_cam_ctrl.hpp>
 #include <custom_msgs/msg/task_stage.hpp>
 #include <custom_msgs/msg/image_distribute.hpp>
+#include <custom_msgs/msg/dis_target.hpp>
 #include <mavros_msgs/msg/manual_control.hpp>
 
 // ROS服务类型
@@ -109,7 +111,7 @@ class ROSCommunicationManager {
           return client->async_send_request(request);
         } catch (const std::exception &e) {
           txtLog().error(THISMODULE "Failed to call service %s: %s",
-                       service_name.c_str(), e.what());
+                         service_name.c_str(), e.what());
         }
       }
     }
@@ -138,65 +140,86 @@ class ROSCommunicationManager {
     using namespace ros_interface;
 
     try {
+      // offboard控制发布
       publishers_[topics::OFFBOARD_CONTROL] =
           node_->create_publisher<custom_msgs::msg::OffboardCtrl>(
               topics::OFFBOARD_CONTROL, qos::control_commands());
-
+      // 防撞距离发布
       publishers_[topics::SET_ANTI_COLLISION_DIS] =
           node_->create_publisher<std_msgs::msg::Float32>(
               topics::SET_ANTI_COLLISION_DIS, qos::control_commands());
-
+      // 到达距离发布
       publishers_[topics::SET_ARRIVAL_DIS] =
           node_->create_publisher<std_msgs::msg::Float32>(
               topics::SET_ARRIVAL_DIS, qos::control_commands());
-
-      publishers_[topics::SET_SPEED] =
-          node_->create_publisher<std_msgs::msg::Float32>(
-              topics::SET_SPEED, qos::control_commands());
-
+      // 编组设置发布
       publishers_[topics::SET_GROUP] =
           node_->create_publisher<std_msgs::msg::UInt8>(
               topics::SET_GROUP, qos::control_commands());
-
+      // 飞机类型设置发布
       publishers_[topics::SET_VEHICLE_TYPE] =
           node_->create_publisher<std_msgs::msg::UInt8>(
               topics::SET_VEHICLE_TYPE, qos::control_commands());
-
+      // 航线发布
       publishers_[topics::SET_NAVLINE] =
           node_->create_publisher<geometry_msgs::msg::Polygon>(
               topics::SET_NAVLINE, qos::mission_commands());
-
+      // home点发布
       publishers_[topics::SET_COORD] =
           node_->create_publisher<geometry_msgs::msg::Point>(
               topics::SET_COORD, qos::control_commands());
-
+      // 编队偏移发布
       publishers_[topics::INFO_GROUP_OFFSET] =
           node_->create_publisher<geometry_msgs::msg::Polygon>(
               topics::INFO_GROUP_OFFSET, qos::status_info());
-
+      // 外部状态发布
       publishers_[topics::OUTER_STATUS_TASK] =
           node_->create_publisher<custom_msgs::msg::StatusTask>(
               topics::OUTER_STATUS_TASK, qos::status_info());
-
+      // 手动控制发布
       publishers_[topics::MANUAL_CONTROL] =
           node_->create_publisher<mavros_msgs::msg::ManualControl>(
               topics::MANUAL_CONTROL, qos::control_commands());
-
+      // 外部响应发布
       publishers_[topics::OUTER_RESPONSE] =
           node_->create_publisher<custom_msgs::msg::CommandRequest>(
               topics::OUTER_RESPONSE, qos::control_commands());
-
+      // 图像分发发布
       publishers_[topics::INFO_IMAGE_DISTRIBUTE] =
           node_->create_publisher<std_msgs::msg::UInt8MultiArray>(
               topics::INFO_IMAGE_DISTRIBUTE, qos::status_info());
-
+      // 图像通道发布
       publishers_[topics::INFO_IMAGE_CHANNEL] =
           node_->create_publisher<std_msgs::msg::UInt8>(
               topics::INFO_IMAGE_CHANNEL, qos::status_info());
-
+      // 相机信息发布
       publishers_[topics::INFO_CAMERA_CONTROL] =
           node_->create_publisher<custom_msgs::msg::MultispectralCamCtrl>(
               topics::INFO_CAMERA_CONTROL, qos::status_info());
+      // 编队队形发布
+      publishers_[topics::SET_FORMATION] =
+          node_->create_publisher<custom_msgs::msg::ParamShort>(
+              topics::SET_FORMATION, qos::mission_commands());
+      // 编组id发布
+      publishers_[topics::SET_GROUP] =
+          node_->create_publisher<std_msgs::msg::UInt8>(
+              topics::SET_GROUP, qos::status_info());
+      // 循环次数发布
+      publishers_[topics::SET_LOOPS] =
+          node_->create_publisher<std_msgs::msg::Int32>(
+              topics::SET_LOOPS, qos::mission_commands());
+      // 编队速度发布
+      publishers_[topics::SET_SPEED] =
+          node_->create_publisher<std_msgs::msg::Float32>(
+              topics::SET_SPEED, qos::mission_commands());
+      // 编队成员发布
+      publishers_[topics::INFO_GROUP_IDS] =
+          node_->create_publisher<std_msgs::msg::UInt8MultiArray>(
+              topics::INFO_GROUP_IDS, qos::status_info());
+      // 航路点发布
+      publishers_[topics::INFO_WAYPOINT] =
+          node_->create_publisher<custom_msgs::msg::DisTarget>(
+              topics::INFO_WAYPOINT, qos::status_info());
 
       txtLog().info(THISMODULE "All publishers created successfully");
 
@@ -318,13 +341,13 @@ class ROSCommunicationManager {
       nlohmann::json mission_json = nlohmann::json::parse(msg->data);
 
       if (!mission_json.contains("stage")) {
-        RCLCPP_WARN(logger_, "Mission JSON missing 'stage' field");
+        txtLog().warnning(THISMODULE "Mission JSON missing 'stage' field");
         return;
       }
 
       auto stage_info = mission_json["stage"];
       if (!stage_info.is_array() || stage_info.empty()) {
-        RCLCPP_WARN(logger_, "Invalid stage info format");
+        txtLog().warnning(THISMODULE "Invalid stage info format");
         return;
       }
 
@@ -354,6 +377,7 @@ class ROSCommunicationManager {
 
   void handleTaskStage(custom_msgs::msg::TaskStage::SharedPtr msg) {
     if (!data_cache_ || !mission_context_) return;
+    mission_context_->setTaskStage(*msg);
 
     auto vehicle_id = data_cache_->getVehicleId();
     auto ids = msg->head.ids;
@@ -481,7 +505,7 @@ class ROSCommunicationManager {
     requestTreeLoad(tree_name);
 
     txtLog().info(THISMODULE "Started mission: %s, Stage: %d",
-                action_name.c_str(), stage_sn);
+                  action_name.c_str(), stage_sn);
   }
 
   void processStopCommand(const nlohmann::json &stage) {
@@ -499,7 +523,7 @@ class ROSCommunicationManager {
 
   void processInsertCommand(const nlohmann::json &stage) {
     txtLog().info(THISMODULE "Insert command received for stage: %s",
-                stage["name"].get<std::string>().c_str());
+                  stage["name"].get<std::string>().c_str());
   }
 
   void processCommand(custom_msgs::msg::CommandRequest::SharedPtr msg) {
@@ -514,7 +538,7 @@ class ROSCommunicationManager {
         break;
       case CmdType::CmdSetHome:handleSetHomeCommand(msg, response);
         break;
-      default:RCLCPP_WARN(logger_, "Unhandled command type: %d", msg->type);
+      default:txtLog().warnning(THISMODULE "Unhandled command type: %d", msg->type);
         break;
     }
 
@@ -551,7 +575,7 @@ class ROSCommunicationManager {
 
     auto vehicle_state = data_cache_->getVehicleState();
     if (vehicle_state && vehicle_state->lock == LockState::UNLOCK) {
-      RCLCPP_WARN(logger_, "Vehicle is locked, cannot set home");
+      txtLog().warnning(THISMODULE "Vehicle is locked, cannot set home");
       response.status = CmdStatus::Failed;
       response.rslt = "Vehicle is locked, cannot set home";
       return;
@@ -566,7 +590,7 @@ class ROSCommunicationManager {
     mission_context_->setHomePoint(home_point);
 
     txtLog().info(THISMODULE "Set home point: (%.6f, %.6f, %.2f)",
-                home_point.x, home_point.y, home_point.z);
+                  home_point.x, home_point.y, home_point.z);
   }
 
   void updateExcludedGroupMembers(const std::set<uint8_t> &executing_ids) {

@@ -6,6 +6,7 @@
 #include <nlohmann/json.hpp>
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/polygon.hpp>
+#include <custom_msgs/msg/task_stage.hpp>
 
 #include "behavior_node/data/base_enum.hpp"
 #include "behavior_node/core/types.hpp"
@@ -17,6 +18,9 @@ class MissionContext {
   std::atomic<int> stage_sn_{-1};
   std::atomic<int> group_id_{-1};
   std::atomic<bool> mission_active_{false};
+  std::atomic<float> arrival_distance_{-1.0f};
+  std::atomic<float> speed_{-1.0f};
+  std::atomic<float> anti_dis_{-1.0f};
   std::atomic<SetContentType> set_type_{SetContentType::TWO_SWITCH};
 
   // 复杂数据类型使用轻量级mutex保护
@@ -30,20 +34,16 @@ class MissionContext {
   geometry_msgs::msg::Polygon way_pts_;
   geometry_msgs::msg::Point home_point_;
   std::set<uint8_t> excluded_ids_;
+  custom_msgs::msg::TaskStage task_stage_;
   behavior_core::SystemState system_state_{behavior_core::SystemState::INITIALIZING};
 
-  rclcpp::Logger logger_;
-
  public:
-  explicit MissionContext(const std::string& logger_name = "MissionContext")
-      : logger_(rclcpp::get_logger(logger_name)) {
-    txtLog().info(THISMODULE "Initialized mission context");
-  }
+  explicit MissionContext() { txtLog().info(THISMODULE "Initialized mission context"); }
 
   // 原子操作接口
   void setTargetId(uint8_t id) {
     target_id_.store(id, std::memory_order_relaxed);
-    RCLCPP_DEBUG(logger_, "Set target ID: %d", id);
+    txtLog().debug(THISMODULE "Set target ID: %d", id);
   }
   uint8_t getTargetId() const {
     return target_id_.load(std::memory_order_relaxed);
@@ -51,7 +51,7 @@ class MissionContext {
 
   void setStage(int stage) {
     stage_sn_.store(stage, std::memory_order_relaxed);
-    RCLCPP_DEBUG(logger_, "Set stage: %d", stage);
+    txtLog().debug(THISMODULE "Set stage: %d", stage);
   }
   int getStage() const {
     return stage_sn_.load(std::memory_order_relaxed);
@@ -59,7 +59,7 @@ class MissionContext {
 
   void setGroupId(int group_id) {
     group_id_.store(group_id, std::memory_order_relaxed);
-    RCLCPP_DEBUG(logger_, "Set group ID: %d", group_id);
+    txtLog().debug(THISMODULE "Set group ID: %d", group_id);
   }
   int getGroupId() const {
     return group_id_.load(std::memory_order_relaxed);
@@ -73,6 +73,33 @@ class MissionContext {
     return mission_active_.load(std::memory_order_relaxed);
   }
 
+  void setArrivalDistance(float distance) {
+    arrival_distance_.store(distance, std::memory_order_relaxed);
+    txtLog().info(THISMODULE "Set arrival distance: %.2f", distance);
+  }
+
+  float getArrivalDistance() const {
+    return arrival_distance_.load(std::memory_order_relaxed);
+  }
+
+  void setSpeed(float speed) {
+    speed_.store(speed, std::memory_order_relaxed);
+    txtLog().info(THISMODULE "Set speed: %.2f", speed);
+  }
+
+  float getSpeed() const {
+    return speed_.load(std::memory_order_relaxed);
+  }
+
+  void setAntiDis(float dis) {
+    anti_dis_.store(dis, std::memory_order_relaxed);
+    txtLog().info(THISMODULE "Set anti-dis: %.2f", dis);
+  }
+
+  float getAntiDis() const {
+    return anti_dis_.load(std::memory_order_relaxed);
+  }
+
   void setSetType(SetContentType type) {
     set_type_.store(type, std::memory_order_relaxed);
   }
@@ -81,7 +108,7 @@ class MissionContext {
   }
 
   // 轻量级mutex保护的接口
-  void setAction(const std::string& action) {
+  void setAction(const std::string &action) {
     std::lock_guard<std::mutex> lock(data_mutex_);
     current_action_ = action;
     txtLog().info(THISMODULE "Set action: %s", action.c_str());
@@ -92,7 +119,7 @@ class MissionContext {
     return current_action_;
   }
 
-  void setCurrentTreeName(const std::string& tree_name) {
+  void setCurrentTreeName(const std::string &tree_name) {
     std::lock_guard<std::mutex> lock(data_mutex_);
     current_tree_name_ = tree_name;
     txtLog().info(THISMODULE "Set current tree: %s", tree_name.c_str());
@@ -104,13 +131,13 @@ class MissionContext {
   }
 
   // 参数管理
-  void setParameter(const std::string& key, const nlohmann::json& value) {
+  void setParameter(const std::string &key, const nlohmann::json &value) {
     std::lock_guard<std::mutex> lock(data_mutex_);
     parameters_[key] = value;
-    RCLCPP_DEBUG(logger_, "Set parameter: %s", key.c_str());
+    txtLog().debug(THISMODULE "Set parameter: %s", key.c_str());
   }
 
-  nlohmann::json getParameter(const std::string& key) const {
+  nlohmann::json getParameter(const std::string &key) const {
     std::lock_guard<std::mutex> lock(data_mutex_);
     auto it = parameters_.find(key);
     return it != parameters_.end() ? it->second : nlohmann::json{};
@@ -121,26 +148,26 @@ class MissionContext {
     return parameters_;
   }
 
-  bool hasParameter(const std::string& key) const {
+  bool hasParameter(const std::string &key) const {
     std::lock_guard<std::mutex> lock(data_mutex_);
     return parameters_.find(key) != parameters_.end();
   }
 
   // 触发器管理
-  void setTrigger(const std::string& name, const nlohmann::json& value) {
+  void setTrigger(const std::string &name, const nlohmann::json &value) {
     std::lock_guard<std::mutex> lock(data_mutex_);
     triggers_[name] = value;
-    RCLCPP_DEBUG(logger_, "Set trigger: %s", name.c_str());
+    txtLog().debug(THISMODULE "Set trigger: %s", name.c_str());
   }
 
-  nlohmann::json getTrigger(const std::string& name) const {
+  nlohmann::json getTrigger(const std::string &name) const {
     std::lock_guard<std::mutex> lock(data_mutex_);
     auto it = triggers_.find(name);
     return it != triggers_.end() ? it->second : nlohmann::json{};
   }
 
   // 组管理
-  void setGroupMembers(const std::vector<uint8_t>& members) {
+  void setGroupMembers(const std::vector<uint8_t> &members) {
     std::lock_guard<std::mutex> lock(data_mutex_);
     group_members_ = members;
     txtLog().info(THISMODULE "Set group members, count: %zu", members.size());
@@ -152,11 +179,11 @@ class MissionContext {
   }
 
   // Home点管理
-  void setHomePoint(const geometry_msgs::msg::Point& home_point) {
+  void setHomePoint(const geometry_msgs::msg::Point &home_point) {
     std::lock_guard<std::mutex> lock(data_mutex_);
     home_point_ = home_point;
     txtLog().info(THISMODULE "Set home point: (%.6f, %.6f, %.2f)",
-                home_point.x, home_point.y, home_point.z);
+                  home_point.x, home_point.y, home_point.z);
   }
 
   geometry_msgs::msg::Point getHomePoint() const {
@@ -165,10 +192,10 @@ class MissionContext {
   }
 
   // 偏移量管理
-  void setOffsets(const geometry_msgs::msg::Polygon& offsets) {
+  void setOffsets(const geometry_msgs::msg::Polygon &offsets) {
     std::lock_guard<std::mutex> lock(data_mutex_);
     offsets_ = offsets;
-    RCLCPP_DEBUG(logger_, "Set offsets, count: %zu", offsets.points.size());
+    txtLog().debug(THISMODULE "Set offsets, count: %zu", offsets.points.size());
   }
 
   geometry_msgs::msg::Polygon getOffsets() const {
@@ -177,7 +204,7 @@ class MissionContext {
   }
 
   // 航点管理
-  void setWaypoints(const geometry_msgs::msg::Polygon& way_pts) {
+  void setWaypoints(const geometry_msgs::msg::Polygon &way_pts) {
     std::lock_guard<std::mutex> lock(data_mutex_);
     way_pts_ = way_pts;
     txtLog().info(THISMODULE "Set waypoints, count: %zu", way_pts.points.size());
@@ -189,27 +216,38 @@ class MissionContext {
   }
 
   // 排除ID管理
-  void setExcludedIds(const std::set<uint8_t>& ids) {
+  void setExcludedIds(const std::set<uint8_t> &ids) {
     std::lock_guard<std::mutex> lock(data_mutex_);
     excluded_ids_ = ids;
-    RCLCPP_DEBUG(logger_, "Set excluded IDs, count: %zu", ids.size());
+    txtLog().debug(THISMODULE "Set excluded IDs, count: %zu", ids.size());
   }
 
   void addExcludedId(uint8_t id) {
     std::lock_guard<std::mutex> lock(data_mutex_);
     excluded_ids_.insert(id);
-    RCLCPP_DEBUG(logger_, "Added excluded ID: %d", id);
+    txtLog().debug(THISMODULE "Added excluded ID: %d", id);
   }
 
   void clearExcludedIds() {
     std::lock_guard<std::mutex> lock(data_mutex_);
     excluded_ids_.clear();
-    RCLCPP_DEBUG(logger_, "Cleared excluded IDs");
+    txtLog().debug(THISMODULE "Cleared excluded IDs");
   }
 
   std::set<uint8_t> getExcludedIds() const {
     std::lock_guard<std::mutex> lock(data_mutex_);
     return excluded_ids_;
+  }
+
+  // 任务阶段管理
+  void setTaskStage(const custom_msgs::msg::TaskStage &stage) {
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    task_stage_ = stage;
+    txtLog().info(THISMODULE "Set task stage");
+  }
+  custom_msgs::msg::TaskStage getTaskStage() const {
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    return task_stage_;
   }
 
   // 系统状态管理

@@ -176,7 +176,7 @@ inline static float getMinDis(float &x1, float &y1, float &x2, float &y2, float 
  * @param lon_0 参考点经度(度)
  * @return 0表示成功，-1表示失败
  */
-int map_projection_init(MapProjectionReference *ref, double lat_0, double lon_0) {
+inline int map_projection_init(MapProjectionReference *ref, double lat_0, double lon_0) {
   if (!ref) {
     return -1;
   }
@@ -202,7 +202,7 @@ int map_projection_init(MapProjectionReference *ref, double lat_0, double lon_0)
  * @param y 输出的y坐标(米，指向东)
  * @return 0表示成功，-1表示失败
  */
-int map_projection_project(const MapProjectionReference *ref, double lat, double lon, float *x, float *y) {
+inline int map_projection_project(const MapProjectionReference *ref, double lat, double lon, float *x, float *y) {
   if (!ref || !ref->initialized || !x || !y) {
     return -1;
   }

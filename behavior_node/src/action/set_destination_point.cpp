@@ -13,14 +13,14 @@ BT::PortsList SetDestinationPoint::providedPorts() {
   return {
       BT::InputPort<int>("step", 0, "当前步骤"),
       BT::InputPort<float>("obsHgh", -60.0f, "障碍高度"),
-      // TODO:: 为啥不改为float？貌似以下input port的类型都应该改为float
-      BT::InputPort<std::string>("rdsParam"),// 半径
-      // 以下input port没有在代码中使用到
-      BT::InputPort<std::string>("itvParam"),// 间隔
-      BT::InputPort<std::string>("altParam"),// 高度
-      BT::InputPort<std::string>("ptTypParam"),// 点类型
-      BT::InputPort<std::string>("dstParam"),// 目标点
-      BT::OutputPort<custom_msgs::msg::OffboardCtrl>("target", "目标位置")
+      BT::OutputPort<custom_msgs::msg::OffboardCtrl>("target", "目标位置"),
+      BT::InputPort<double>("radius", "半径"), // 半径
+      // 以下input port没有在代码中暂时跳过逻辑，直接使用其默认值
+      BT::InputPort<std::string>("rdsParam", "radius", "radius param name in json"),// 半径
+      BT::InputPort<std::string>("itvParam", "intval", "intval param name in json"),// 间隔
+      BT::InputPort<std::string>("altParam", "alt", "alt param name in json"),// 高度
+      BT::InputPort<std::string>("ptTypParam", "pointTag", "pointTag param name in json"),// 点类型
+      BT::InputPort<std::string>("dstParam", "dstLoc", "dstLoc param name in json"),// 目标点
   };
 }
 
@@ -28,14 +28,14 @@ BT::NodeStatus SetDestinationPoint::tick() {
   custom_msgs::msg::OffboardCtrl target_msg;
   target_msg.ordmask = OffBoardMask::LocCtrl + OffBoardMask::YawCtrl;
   // 获取目标点
-  auto point_json = context()->getParameter("dstParam");
+  auto point_json = context()->getParameter("dstLoc");
   geometry_msgs::msg::Point32 destination_point;
-  if (point_json.is_array() && point_json.size() > 0) {
+  if (point_json.is_array() && !point_json.empty()) {
     // TODO:: 为什么只取第一个点
-    if (auto point = point_json[0];point.contains("x") && point.contains("y") && point.contains("z")) {
-      destination_point.x = point["x"].get<float>();
-      destination_point.y = point["y"].get<float>();
-      destination_point.z = point["z"].get<float>();
+    if (auto point = point_json[0];point.contains("x_lat") && point.contains("y_lon") && point.contains("z_alt")) {
+      destination_point.x = point["x_lat"].get<float>();
+      destination_point.y = point["y_lon"].get<float>();
+      destination_point.z = point["z_alt"].get<float>();
       // 检查高度有效性
       utility::checkZValid(destination_point.z);
       // 如果是gps点，则转换为地图坐标
@@ -71,15 +71,16 @@ BT::NodeStatus SetDestinationPoint::tick() {
     if (*cache()->getVehicleType() == VehicleType::FixWing) {
       target_msg.ordmask = OffBoardMask::FixLocRadCtrl;
       target_msg.airspd = 0.0f;
-      double rds = 60.0;
-      if (auto rds_input = getInput<std::string>("rdsParam"); rds_input) {
-        rds = std::stof(rds_input.value());
-        txtLog().info(THISMODULE "use radius via input port is:%f", rds);
-      } else if (auto rds_param = context()->getParameter("rdsParam"); rds_param.is_number()) {
-        rds = rds_param.get<double>();
-        txtLog().info(THISMODULE "use radius via json is:%f", rds);
+      double radius = 60.0; // 默认半径为60m
+      if (getInput<double>("radius", radius)) {
+        txtLog().info(THISMODULE "use radius via inputport is:%f", radius);
+      } else if (auto dist = context()->getArrivalDistance();dist > 0.0) {
+        radius = dist;
+        txtLog().info(THISMODULE "use radius via arrive distance is:%f", radius);
+      } else{
+        txtLog().info(THISMODULE "use default radius:%f", radius);
       }
-      target_msg.vy = rds;
+      target_msg.vy = radius;
     } else { // 当为旋翼时则需要计算当前位置和目的位置的航向
       // 如相距很近则使用当前航向
       if (utility::getDisFrmLoc(simple_vehicle->x / 1e3, simple_vehicle->y / 1e3, target_msg.x, target_msg.y) <

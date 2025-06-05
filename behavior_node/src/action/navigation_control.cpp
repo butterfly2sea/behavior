@@ -7,13 +7,13 @@
 
 BT::PortsList NavigationControl::providedPorts() {
   return {
-      BT::InputPort<int>("frame", 0, "坐标系 (0-LOCAL_NED, 1-BODY_NED, 2-LOCAL_ENU, 3-GLOBAL)"),
+      BT::InputPort<int>("frame", 0, "1：节点自己进行offboard控制，0：节点只进行计算不进行实际控制"),
       BT::InputPort<int>("command", "导航命令 (0-开始, 1-暂停, 2-恢复, 3-停止)")
   };
 }
 
 BT::NodeStatus NavigationControl::onStart() {
-  uint8_t frame = 1; // 默认使用BODY_NED坐标系
+  uint8_t frame = 1; // 节点自己进行offboard控制
   uint8_t command = 0; // 默认使用开始编队飞行
   if (!getInput("frame", frame)) frame = 1; // 没有参数则使用1（节点自己进行offboard控制）
   if (!getInput("command", command)) command = 0; // 没有参数则使用0（开始编队飞行）

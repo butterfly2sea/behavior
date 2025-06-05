@@ -33,21 +33,21 @@ class BehaviorControlNode : public rclcpp::Node {
   std::chrono::milliseconds watchdog_interval_{5000};
 
  public:
-  explicit BehaviorControlNode(const rclcpp::NodeOptions& options = rclcpp::NodeOptions())
+  explicit BehaviorControlNode(const rclcpp::NodeOptions &options = rclcpp::NodeOptions())
       : Node("behavior_control", options) {
 
     declareParameters();
     loadParameters();
 
     if (!initializeComponents()) {
-      RCLCPP_ERROR(get_logger(), "Failed to initialize components");
+      txtLog().error(THISMODULE "Failed to initialize components");
       return;
     }
 
     setupTimers();
 
     initialized_.store(true);
-    RCLCPP_INFO(get_logger(), "Behavior Control Node initialized successfully");
+    txtLog().info(THISMODULE "Behavior Control Node initialized successfully");
   }
 
   ~BehaviorControlNode() {
@@ -59,7 +59,7 @@ class BehaviorControlNode : public rclcpp::Node {
       return;
     }
 
-    RCLCPP_INFO(get_logger(), "Shutting down Behavior Control Node");
+    txtLog().info(THISMODULE "Shutting down Behavior Control Node");
 
     if (status_timer_) status_timer_->cancel();
     if (watchdog_timer_) watchdog_timer_->cancel();
@@ -76,7 +76,7 @@ class BehaviorControlNode : public rclcpp::Node {
       mission_context_->setSystemState(behavior_core::SystemState::SHUTTING_DOWN);
     }
 
-    RCLCPP_INFO(get_logger(), "Behavior Control Node shutdown complete");
+    txtLog().info(THISMODULE "Behavior Control Node shutdown complete");
   }
 
   bool isInitialized() const {
@@ -104,10 +104,10 @@ class BehaviorControlNode : public rclcpp::Node {
     try {
 
       // 1. 数据缓存
-      data_cache_ = std::make_shared<Cache>("DataCache");
+      data_cache_ = std::make_shared<Cache>();
 
       // 2. 任务上下文
-      mission_context_ = std::make_shared<MissionContext>("MissionContext");
+      mission_context_ = std::make_shared<MissionContext>();
       mission_context_->setSystemState(behavior_core::SystemState::INITIALIZING);
 
       // 3. 消息队列
@@ -115,9 +115,7 @@ class BehaviorControlNode : public rclcpp::Node {
       message_queue_ = std::make_shared<behavior_core::MessageQueue>(queue_size);
 
       // 4. 行为执行器
-      behavior_executor_ = std::make_shared<BehaviorExecutor>(
-          shared_from_this(), message_queue_,
-          tree_directory_, "BehaviorExecutor");
+      behavior_executor_ = std::make_shared<BehaviorExecutor>(shared_from_this(), message_queue_, tree_directory_);
 
       // 5. ROS通信管理器
       ros_comm_ = std::make_shared<ROSCommunicationManager>(
@@ -141,8 +139,8 @@ class BehaviorControlNode : public rclcpp::Node {
 
       return true;
 
-    } catch (const std::exception& e) {
-      RCLCPP_ERROR(get_logger(), "Failed to initialize components: %s", e.what());
+    } catch (const std::exception &e) {
+      txtLog().error(THISMODULE "Failed to initialize components: %s", e.what());
       return false;
     }
   }
@@ -185,15 +183,14 @@ class BehaviorControlNode : public rclcpp::Node {
       static size_t last_tick_count = 0;
 
       if (behavior_executor_->isRunning() && tick_count == last_tick_count) {
-        RCLCPP_WARN(get_logger(), "Behavior executor may be stuck");
+        txtLog().warnning(THISMODULE "Behavior executor may be stuck");
       }
       last_tick_count = tick_count;
     }
 
     // 检查消息队列状态
     if (message_queue_ && message_queue_->size() > 50) {
-      RCLCPP_WARN(get_logger(), "Message queue is filling up: %zu messages",
-                  message_queue_->size());
+      txtLog().warnning(THISMODULE "Message queue is filling up: %zu messages", message_queue_->size());
     }
   }
 };

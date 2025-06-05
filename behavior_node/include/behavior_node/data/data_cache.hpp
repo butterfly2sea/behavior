@@ -61,9 +61,7 @@ class Cache {
   ThreadSafeCache<sensor_msgs::msg::Joy> joy_control_;
 
  public:
-  explicit Cache(const std::string &logger_name = "Cache") {
-    txtLog().info(THISMODULE "Initialized data cache");
-  }
+  explicit Cache() { txtLog().info(THISMODULE "Initialized data cache"); }
 
   // 飞机状态相关
   std::shared_ptr<custom_msgs::msg::SimpleVehicle> getVehicleState() const {

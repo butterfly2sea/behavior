@@ -57,7 +57,7 @@ BT::NodeStatus FlightModeControl::onRunning() {
     auto result = future_.get();
     if (result->success) {
       txtLog().info(THISMODULE "Mode change success");
-      // 原来实现是读取simpVehi中的flymd，此处直接读取CommandLong_Response_的success字段
+      // 原来实现是读取simpleVehi中的flymd，此处直接读取CommandLong_Response_的success字段
       return BT::NodeStatus::SUCCESS;
     } else {
       txtLog().error(THISMODULE "Mode change failed");

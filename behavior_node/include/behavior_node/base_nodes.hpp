@@ -61,10 +61,4 @@ template<typename Derived>
 class ConditionBase : public NodeBase<Derived, BT::ConditionNode> {
  public:
   using NodeBase<Derived, BT::ConditionNode>::NodeBase;
-
- protected:
-  // 条件节点通用的辅助方法
-  bool isDataFresh(const rclcpp::Time &timestamp, double max_age_sec = 1.0) const {
-    return (rclcpp::Clock().now() - timestamp).seconds() < max_age_sec;
-  }
 };
