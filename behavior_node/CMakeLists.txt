@@ -55,6 +55,8 @@ ament_target_dependencies(behavior_node
         geometry_msgs
 )
 
+target_link_libraries(behavior_node dislog)
+
 # 安装目标
 install(TARGETS behavior_node
         DESTINATION lib/${PROJECT_NAME})
