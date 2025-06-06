@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4">
+
+    <!-- 起飞测试树 -->
+    <BehaviorTree ID="TakeOff-start">
+        <Sequence>
+            <LockCtrl state="1" />
+            <FlightmodeCtrl mode="4" param7="-30.0" />
+            <SetDstPt target="{ctrl_info}" step="0" />
+            <KeepRunningUntilFailure>
+                <Delay delay_msec="100">
+                    <OffboardCtrl ctrl="{ctrl_info}" yaw="0.0"/>
+                </Delay>
+            </KeepRunningUntilFailure>
+        </Sequence>
+    </BehaviorTree>
+
+</root>

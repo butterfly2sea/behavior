@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4">
+
+    <!-- 基础功能测试 -->
+    <BehaviorTree ID="BasicFunctionTest">
+        <Sequence>
+            <!-- 解锁测试 -->
+            <LockCtrl state="1" />
+
+            <!-- 设置目标点测试 -->
+            <SetDstPt target="{ctrl_info}" step="2" />
+
+            <!-- 检查到达测试 -->
+            <CheckArriveDst target="{ctrl_info}" arvdis="1.0"/>
+
+            <!-- 控制输出测试 -->
+            <OffboardCtrl ctrl="{ctrl_info}" yaw="0.0"/>
+        </Sequence>
+    </BehaviorTree>
+
+    <!-- 传感器数据测试 -->
+    <BehaviorTree ID="SensorTest">
+        <Sequence>
+            <!-- 检查是否发现目标 -->
+            <CheckQuitSearch />
+
+            <!-- 设置参数测试 -->
+            <SetLine type="1" antiDis="5.0" />
+        </Sequence>
+    </BehaviorTree>
+
+    <!-- 组合功能测试 -->
+    <BehaviorTree ID="IntegratedTest">
+        <Sequence>
+            <!-- 初始化 -->
+            <LockCtrl state="1" />
+            <SetLine type="1" antiDis="10.0" />
+
+            <!-- 起飞到指定高度 -->
+            <FlightmodeCtrl mode="4" param7="-25.0" />
+
+            <!-- 飞向目标区域 -->
+            <SetDstPt target="{ctrl_info}" step="2" />
+            <ReactiveFallback>
+                <CheckArriveDst target="{ctrl_info}" arvdis="3.0"/>
+                <KeepRunningUntilFailure>
+                    <Delay delay_msec="50">
+                        <OffboardCtrl ctrl="{ctrl_info}" yaw="0.0"/>
+                    </Delay>
+                </KeepRunningUntilFailure>
+            </ReactiveFallback>
+
+            <!-- 搜索目标 -->
+            <Inverter>
+                <KeepRunningUntilFailure>
+                    <Delay delay_msec="500">
+                        <Inverter>
+                            <CheckQuitSearch />
+                        </Inverter>
+                    </Delay>
+                </KeepRunningUntilFailure>
+            </Inverter>
+
+            <!-- 降落 -->
+            <FlightmodeCtrl mode="5" />
+        </Sequence>
+    </BehaviorTree>
+
+</root>

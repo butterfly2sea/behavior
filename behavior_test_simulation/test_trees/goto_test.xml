@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4">
+
+    <!-- 目标点飞行测试树 -->
+    <BehaviorTree ID="GotoDst-start">
+        <Sequence>
+            <LockCtrl state="1" />
+            <SetDstPt target="{ctrl_info}" step="2" />
+            <ReactiveFallback>
+                <CheckArriveDst target="{ctrl_info}" arvdis="2.0"/>
+                <KeepRunningUntilFailure>
+                    <Delay delay_msec="100">
+                        <OffboardCtrl ctrl="{ctrl_info}" yaw="0.0"/>
+                    </Delay>
+                </KeepRunningUntilFailure>
+            </ReactiveFallback>
+        </Sequence>
+    </BehaviorTree>
+
+</root>

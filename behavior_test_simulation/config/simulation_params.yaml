@@ -1,0 +1,49 @@
+# config/simulation_params.yaml
+simulation_node:
+  ros__parameters:
+    # 仿真更新频率
+    vehicle_update_rate: 50.0  # Hz
+    object_detection_rate: 10.0  # Hz
+
+    # 飞机仿真参数
+    vehicle:
+      id: 1
+      max_velocity: 8.0  # m/s
+      max_acceleration: 2.0  # m/s²
+      position_tolerance: 0.5  # m
+      yaw_rate: 1.0  # rad/s
+      initial_position:
+        x: 0.0
+        y: 0.0
+        z: -50.0  # 初始高度50米
+        yaw: 0.0
+
+    # 噪声参数
+    noise:
+      position_noise: 0.1  # m
+      velocity_noise: 0.05  # m/s
+      sensor_noise: 0.02  # m
+
+    # 目标检测仿真
+    object_detection:
+      enable: true
+      max_detection_range: 200.0  # m
+      min_confidence: 0.7
+      detection_probability: 0.9
+
+    # 仿真目标配置
+    simulated_objects:
+      - id: 101
+        initial_position: [100.0, 50.0, -30.0]
+        velocity: [2.0, 1.0, 0.0]
+        confidence: 0.85
+      - id: 102
+        initial_position: [-80.0, 120.0, -25.0]
+        velocity: [-1.5, -0.5, 0.2]
+        confidence: 0.92
+
+    # 服务响应延迟仿真
+    service_delays:
+      flight_mode: 0.1  # s
+      lock_unlock: 0.05  # s
+      formation_switch: 0.2  # s

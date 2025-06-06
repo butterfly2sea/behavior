@@ -1,9 +1,0 @@
-struct CommandResponse{
-    octet id;                 //飞机id
-	octet src;                //指令发送源id
-    unsigned short cmd;       //指令类型
-    unsigned short subcmd;    //分指令
-    unsigned short status;    //指令执行状态
-    string rslt;              //附加信息
-
-};

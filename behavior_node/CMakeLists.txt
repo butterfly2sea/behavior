@@ -25,6 +25,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(custom_msgs REQUIRED)
 find_package(mavros_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+#find_package(data_record REQUIRED)
 
 # 收集源文件
 file(GLOB_RECURSE ACTION_SRC "src/action/*.cpp")

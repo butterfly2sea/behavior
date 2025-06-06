@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4">
+
+    <!-- 简单测试行为树 -->
+    <BehaviorTree ID="SimpleTest">
+        <Sequence>
+            <LockCtrl state="1" />
+            <SetDstPt target="{ctrl_info}" step="0" />
+            <KeepRunningUntilFailure>
+                <Delay delay_msec="100">
+                    <OffboardCtrl ctrl="{ctrl_info}" yaw="0.0"/>
+                </Delay>
+            </KeepRunningUntilFailure>
+        </Sequence>
+    </BehaviorTree>
+
+</root>

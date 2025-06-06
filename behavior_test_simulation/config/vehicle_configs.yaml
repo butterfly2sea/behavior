@@ -1,0 +1,44 @@
+# config/vehicle_configs.yaml
+
+# 多旋翼配置
+multirotor:
+  vehicle_type: 2  # Coper
+  max_velocity: 8.0  # m/s
+  max_acceleration: 3.0  # m/s²
+  max_climb_rate: 2.0  # m/s
+  max_descent_rate: 1.5  # m/s
+  max_yaw_rate: 45.0  # deg/s
+  position_tolerance: 0.5  # m
+
+# 固定翼配置
+fixed_wing:
+  vehicle_type: 1  # FixWing
+  max_velocity: 15.0  # m/s
+  min_velocity: 8.0  # m/s
+  cruise_velocity: 12.0  # m/s
+  max_acceleration: 2.0  # m/s²
+  max_climb_rate: 3.0  # m/s
+  max_descent_rate: 2.0  # m/s
+  max_bank_angle: 30.0  # deg
+  loiter_radius: 50.0  # m
+  position_tolerance: 2.0  # m
+
+# VTOL配置
+vtol:
+  vehicle_type: 3  # VtolCop (旋翼模式)
+  transition_altitude: 30.0  # m
+  multirotor_mode:
+    max_velocity: 6.0  # m/s
+    position_tolerance: 0.8  # m
+  fixed_wing_mode:
+    cruise_velocity: 18.0  # m/s
+    loiter_radius: 80.0  # m
+    position_tolerance: 3.0  # m
+
+# 测试车辆配置
+test_vehicle:
+  vehicle_type: 5  # Car
+  max_velocity: 5.0  # m/s
+  max_acceleration: 1.5  # m/s²
+  position_tolerance: 0.3  # m
+  turning_radius: 3.0  # m
