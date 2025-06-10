@@ -85,7 +85,11 @@ class ROSCommunicationManager {
         } catch (const std::exception &e) {
           txtLog().error(THISMODULE "Failed to publish to %s: %s", topic.c_str(), e.what());
         }
+      } else {
+        txtLog().error(THISMODULE "Publisher type mismatch for topic: %s", topic.c_str());
       }
+    } else {
+      txtLog().error(THISMODULE "Publisher not found for topic: %s", topic.c_str());
     }
     return false;
   }
@@ -182,7 +186,7 @@ class ROSCommunicationManager {
               topics::MANUAL_CONTROL, qos::control_commands());
       // 外部响应发布
       publishers_[topics::OUTER_RESPONSE] =
-          node_->create_publisher<custom_msgs::msg::CommandRequest>(
+          node_->create_publisher<custom_msgs::msg::CommandResponse>(
               topics::OUTER_RESPONSE, qos::control_commands());
       // 图像分发发布
       publishers_[topics::INFO_IMAGE_DISTRIBUTE] =

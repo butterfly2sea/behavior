@@ -12,6 +12,15 @@
 #include "behavior_node/data/mission_context.hpp"
 #include "behavior_node/base_nodes.hpp"
 
+#include "behavior_node/action/flight_mode_control.hpp"
+#include "behavior_node/action/lock_control.hpp"
+#include "behavior_node/action/navigation_control.hpp"
+#include "behavior_node/action/off_board_control.hpp"
+#include "behavior_node/action/set_destination_point.hpp"
+#include "behavior_node/action/set_line_parameters.hpp"
+#include "behavior_node/condition/check_arrive_destination.hpp"
+#include "behavior_node/condition/check_quit_search.hpp"
+
 // 前向声明
 class ROSCommunicationManager;
 
@@ -54,7 +63,7 @@ class BehaviorExecutor {
       std::string tree_dir = "trees")
       : node_(std::move(node)),
         message_queue_(std::move(msg_queue)),
-        tree_directory_(std::move(tree_dir)){
+        tree_directory_(std::move(tree_dir)) {
 
     blackboard_ = BT::Blackboard::create();
     last_tick_time_ = std::chrono::steady_clock::now();
@@ -83,11 +92,63 @@ class BehaviorExecutor {
     NodeDependencies deps{ros_comm_, data_cache_, mission_context_};
 
     // 在这里注册具体的行为树节点
-    // factory_.registerBuilder<FlightModeControl>(
-    //     "FlightModeControl",
-    //     [deps](const std::string& name, const BT::NodeConfiguration& config) {
-    //         return std::make_unique<FlightModeControl>(name, config, deps);
-    //     });
+    // 飞行模式控制节点
+    factory_.registerBuilder<FlightModeControl>(
+        "FlightModeControl",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<FlightModeControl>(name, config, deps);
+        });
+
+    // 锁定控制节点
+    factory_.registerBuilder<LockControl>(
+        "LockControl",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<LockControl>(name, config, deps);
+        });
+
+    // 导航控制节点
+    factory_.registerBuilder<NavigationControl>(
+        "NavigationControl",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<NavigationControl>(name, config, deps);
+        });
+
+    // offboard控制节点
+    factory_.registerBuilder<OffBoardControl>(
+        "OffBoardControl",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<OffBoardControl>(name, config, deps);
+        });
+
+    // 设置目标点节点
+    factory_.registerBuilder<SetDestinationPoint>(
+        "SetDestinationPoint",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<SetDestinationPoint>(name, config, deps);
+        });
+
+    // 设置航线参数节点
+    factory_.registerBuilder<SetLineParameters>(
+        "SetLineParameters",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<SetLineParameters>(name, config, deps);
+        });
+
+    // 检查是否抵达目标点节点
+    factory_.registerBuilder<CheckArriveDestination>(
+        "CheckArriveDestination",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<CheckArriveDestination>(name, config, deps);
+        });
+
+    // 检查是否退出搜索节点
+    factory_.registerBuilder<CheckQuitSearch>(
+        "CheckQuitSearch",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<CheckQuitSearch>(name, config, deps);
+        });
+
+
 
     txtLog().info(THISMODULE "Behavior tree nodes registered");
   }
@@ -179,7 +240,7 @@ class BehaviorExecutor {
       is_running_.store(true);
 
       txtLog().info(THISMODULE "Successfully loaded and started behavior tree: %s",
-                  tree_name.c_str());
+                    tree_name.c_str());
       return true;
 
     } catch (const std::exception &e) {
@@ -276,7 +337,7 @@ class BehaviorExecutor {
 
       if (execution_ms > tick_interval_) {
         txtLog().warnning(THISMODULE "Tree tick took %ld ms, longer than interval %ld ms",
-                    execution_ms.count(), tick_interval_.count());
+                          execution_ms.count(), tick_interval_.count());
       }
 
     } catch (const std::exception &e) {
@@ -338,6 +399,6 @@ class BehaviorExecutor {
     stopTree();
 
     txtLog().info(THISMODULE "Tree execution completed, status: %s",
-                success ? "SUCCESS" : "FAILURE");
+                  success ? "SUCCESS" : "FAILURE");
   }
 };

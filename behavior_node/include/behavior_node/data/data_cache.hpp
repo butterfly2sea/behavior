@@ -96,7 +96,7 @@ class Cache {
   void updateDetectedObjects(custom_msgs::msg::ObjectComputation::SharedPtr msg) {
     if (msg) {
       detected_objects_.update(std::move(msg));
-      txtLog().debug(THISMODULE "Updated detected objects, count: %zu", msg->objs.size());
+      txtLog().debug(THISMODULE "Updated detected objects");
     }
   }
 

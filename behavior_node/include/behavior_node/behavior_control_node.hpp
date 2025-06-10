@@ -10,6 +10,7 @@
 #include "behavior_node/data/ros_communication_manager.hpp"
 #include "behavior_node/core/behavior_executor.hpp"
 #include "behavior_node/core/message_queue.hpp"
+
 class BehaviorControlNode : public rclcpp::Node {
  private:
   // 核心组件
@@ -39,19 +40,30 @@ class BehaviorControlNode : public rclcpp::Node {
     declareParameters();
     loadParameters();
 
+    txtLog().info(THISMODULE "Behavior Control Node created, ready for initialization");
+  }
+
+  ~BehaviorControlNode() override {
+    shutdown();
+  }
+
+  // 新增：独立的初始化方法
+  bool initialize() {
+    if (initialized_.load()) {
+      txtLog().warnning(THISMODULE "Node already initialized");
+      return true;
+    }
+
     if (!initializeComponents()) {
       txtLog().error(THISMODULE "Failed to initialize components");
-      return;
+      return false;
     }
 
     setupTimers();
 
     initialized_.store(true);
     txtLog().info(THISMODULE "Behavior Control Node initialized successfully");
-  }
-
-  ~BehaviorControlNode() {
-    shutdown();
+    return true;
   }
 
   void shutdown() {

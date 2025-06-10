@@ -20,9 +20,11 @@ int main(int argc, char** argv) {
   signal(SIGTERM, signalHandler);
 
   try {
+    // 1. 先创建节点对象
     g_node = std::make_shared<BehaviorControlNode>();
 
-    if (!g_node->isInitialized()) {
+    // 2. 等待节点完全被shared_ptr管理后，再进行初始化
+    if (!g_node->initialize()) {
       txtLog().error(THISMODULE "Failed to initialize behavior control node");
       return -1;
     }
