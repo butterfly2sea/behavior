@@ -597,20 +597,20 @@ class ROSCommunicationManager {
                   home_point.x, home_point.y, home_point.z);
   }
 
-  void updateExcludedGroupMembers(const std::set<uint8_t> &executing_ids) {
+  void updateExcludedGroupMembers(const std::set<uint8_t> &excluded_ids) {
     if (!mission_context_) return;
 
     auto current_members = mission_context_->getGroupMembers();
     std::vector<uint8_t> updated_members;
 
     for (uint8_t member_id : current_members) {
-      if (executing_ids.find(member_id) == executing_ids.end()) {
+      if (excluded_ids.find(member_id) == excluded_ids.end()) {
         updated_members.push_back(member_id);
       }
     }
 
     if (updated_members.size() != current_members.size()) {
-      mission_context_->setExcludedIds(executing_ids);
+      mission_context_->setExcludedIds(excluded_ids);
       txtLog().info(THISMODULE "Updated excluded group members");
     }
   }

@@ -174,19 +174,20 @@ class BehaviorControlNode : public rclcpp::Node {
     bool executor_running = behavior_executor_->isRunning();
     std::string current_tree = behavior_executor_->getCurrentTreeName();
 
-    RCLCPP_DEBUG(get_logger(),
-                 "Status - System: %d, Vehicle: %s, Executor: %s, Tree: %s",
-                 static_cast<int>(system_state),
-                 data_cache_->isVehicleStateValid() ? "OK" : "INVALID",
-                 executor_running ? "RUNNING" : "STOPPED",
-                 current_tree.c_str());
+    txtLog().debug(
+        THISMODULE
+        "Status - System: %d, Vehicle: %s, Executor: %s, Tree: %s",
+        static_cast<int>(system_state),
+        data_cache_->isVehicleStateValid() ? "OK" : "INVALID",
+        executor_running ? "RUNNING" : "STOPPED",
+        current_tree.c_str());
   }
 
   void watchdogCheck() {
     if (!data_cache_) return;
 
     if (!data_cache_->isVehicleStateValid()) {
-      RCLCPP_WARN(get_logger(), "Vehicle state data is stale or invalid");
+      txtLog().warnning(THISMODULE "Vehicle state data is stale or invalid");
     }
 
     // 检查行为执行器状态
