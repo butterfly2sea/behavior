@@ -1,14 +1,7 @@
 #include "behavior_node/condition/check_quit_search.hpp"
 
-#include <rclcpp/rclcpp.hpp>
-#include <rclcpp/node.hpp>
-
 #include "behavior_node/data/data_cache.hpp"
 #include "behavior_node/data/mission_context.hpp"
-
-BT::PortsList CheckQuitSearch::providedPorts() {
-  return {};  // 不需要端口
-}
 
 BT::NodeStatus CheckQuitSearch::tick() {
   txtLog().info(THISMODULE "check quit search tick");

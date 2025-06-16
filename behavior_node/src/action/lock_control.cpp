@@ -7,13 +7,6 @@
 #include "behavior_node/data/ros_communication_manager.hpp"
 #include "behavior_node/data/ros_interface_definitions.hpp"
 
-BT::PortsList LockControl::providedPorts() {
-  return {
-      BT::InputPort<int>("state", "锁定状态 (0-锁定, 1-解锁)"),
-      BT::OutputPort<bool>("result", "控制结果")
-  };
-}
-
 BT::NodeStatus LockControl::onStart() {
   txtLog().info(THISMODULE "Lock control action started");
   int target_state{0};

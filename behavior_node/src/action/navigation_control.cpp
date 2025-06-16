@@ -5,13 +5,6 @@
 #include "behavior_node/data/ros_communication_manager.hpp"
 #include "behavior_node/data/ros_interface_definitions.hpp"
 
-BT::PortsList NavigationControl::providedPorts() {
-  return {
-      BT::InputPort<int>("frame", 0, "1：节点自己进行offboard控制，0：节点只进行计算不进行实际控制"),
-      BT::InputPort<int>("command", "导航命令 (0-开始, 1-暂停, 2-恢复, 3-停止)")
-  };
-}
-
 BT::NodeStatus NavigationControl::onStart() {
   txtLog().info(THISMODULE "NavigationControl: Starting navigation control");
   uint8_t frame = 1; // 节点自己进行offboard控制

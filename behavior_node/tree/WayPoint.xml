@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <root BTCPP_format="4">
-    <BehaviorTree ID="WaypointMission-start">
+    <BehaviorTree ID="WaypointMission">
         <Sequence name="WaypointMissionSequence">
             <!-- 1. 初始化 -->
             <Sequence name="Initialization">

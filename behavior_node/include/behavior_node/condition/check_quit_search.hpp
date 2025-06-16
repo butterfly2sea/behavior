@@ -13,7 +13,9 @@ class CheckQuitSearch : public ConditionBase<CheckQuitSearch> {
   CheckQuitSearch(const std::string &name, const BT::NodeConfig &config, NodeDependencies deps)
       : ConditionBase<CheckQuitSearch>(name, config, deps) {};
 
-  static BT::PortsList providedPorts();
+  static BT::PortsList providedPorts() {
+    return {};
+  }
 
   BT::NodeStatus tick() override;
 };

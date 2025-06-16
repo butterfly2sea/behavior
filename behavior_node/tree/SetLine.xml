@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <root BTCPP_format="4">
-    <BehaviorTree ID="SetLine-start">
+    <BehaviorTree ID="SetLine">
         <Sequence name="ParameterConfigSequence">
             <!-- 设置所有参数 -->
             <SetLineParameters
@@ -12,6 +12,7 @@
                     ptTypParam="pointTag"
                     ptsParam="wayPoints"
                     lpsParam="loops"
+                    result="{param_result}"
             />
 
             <!-- 简单的成功返回 -->

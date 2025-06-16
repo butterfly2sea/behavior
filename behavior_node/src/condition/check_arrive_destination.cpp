@@ -5,14 +5,6 @@
 #include "behavior_node/utils/utility.hpp"
 #include "behavior_node/data/data_cache.hpp"
 
-BT::PortsList CheckArriveDestination::providedPorts() {
-  return {
-      BT::InputPort<custom_msgs::msg::OffboardCtrl>("target", "目标位置"),
-      BT::InputPort<float>("arvdis", 0.2, "到达距离阈值"),
-      BT::InputPort<bool>("onlyz", false, "仅检查Z轴")
-  };
-}
-
 BT::NodeStatus CheckArriveDestination::tick() {
   txtLog().info(THISMODULE "check arrive destination tick");
   // 获取目标位置

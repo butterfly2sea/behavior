@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <root BTCPP_format="4">
-    <BehaviorTree ID="LockCtrl-start">
+    <BehaviorTree ID="LockCtrl">
         <Sequence name="UnlockSequence">
             <!-- 1. 设置基本参数 -->
             <SetLineParameters
@@ -8,6 +8,7 @@
                     antiDis="5.0"
                     vehiTypParam="vehiType"
                     spdParam="spd"
+                    result="{param_result}"
             />
 
             <!-- 2. 解锁载具 -->
@@ -18,15 +19,18 @@
 
             <!-- 3. 设置待机位置 -->
             <SetDestinationPoint
-                    target="{standby_ctrl}"
                     step="0"
                     obsHgh="-50.0"
+                    target="{standby_ctrl}"
             />
 
             <!-- 4. 保持位置控制 -->
             <Repeat num_cycles="10">
                 <Delay delay_msec="100">
-                    <OffBoardControl/>
+                    <OffBoardControl
+                            ctrl="{standby_ctrl}"
+                            result="{control_result}"
+                    />
                 </Delay>
             </Repeat>
         </Sequence>

@@ -6,16 +6,6 @@
 #include "behavior_node/data/ros_communication_manager.hpp"
 #include "behavior_node/data/mission_context.hpp"
 
-
-
-BT::PortsList FlightModeControl::providedPorts() {
-  return {
-      BT::InputPort<int>("mode", "飞行模式，取值范围[1,8]，分别对应FlightMode枚举值"),
-      BT::InputPort<float>("param7", "起飞高度"),
-      BT::InputPort<std::string>("altParam", "高度参数名称")
-  };
-}
-
 BT::NodeStatus FlightModeControl::onStart() {
   txtLog().info(THISMODULE "Starting flight mode control");
   int target_mode = 0;

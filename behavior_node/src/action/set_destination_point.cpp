@@ -4,25 +4,9 @@
 
 #include "behavior_node/data/base_enum.hpp"
 #include "behavior_node/data/ros_communication_manager.hpp"
-#include "behavior_node/data/ros_interface_definitions.hpp"
 #include "behavior_node/data/mission_context.hpp"
 #include "behavior_node/data/data_cache.hpp"
 #include "behavior_node/utils/utility.hpp"
-
-BT::PortsList SetDestinationPoint::providedPorts() {
-  return {
-      BT::InputPort<int>("step", 0, "当前步骤"),
-      BT::InputPort<float>("obsHgh", -60.0f, "障碍高度"),
-      BT::OutputPort<custom_msgs::msg::OffboardCtrl>("target", "目标位置"),
-      BT::InputPort<double>("radius", "半径"), // 半径
-      // 以下input port没有在代码中暂时跳过逻辑，直接使用其默认值
-      BT::InputPort<std::string>("rdsParam", "radius", "radius param name in json"),// 半径
-      BT::InputPort<std::string>("itvParam", "intval", "intval param name in json"),// 间隔
-      BT::InputPort<std::string>("altParam", "alt", "alt param name in json"),// 高度
-      BT::InputPort<std::string>("ptTypParam", "pointTag", "pointTag param name in json"),// 点类型
-      BT::InputPort<std::string>("dstParam", "dstLoc", "dstLoc param name in json"),// 目标点
-  };
-}
 
 BT::NodeStatus SetDestinationPoint::tick() {
   txtLog().info(THISMODULE "set destination point tick");
@@ -78,7 +62,7 @@ BT::NodeStatus SetDestinationPoint::tick() {
       } else if (auto dist = context()->getArrivalDistance();dist > 0.0) {
         radius = dist;
         txtLog().info(THISMODULE "use radius via arrive distance is:%f", radius);
-      } else{
+      } else {
         txtLog().info(THISMODULE "use default radius:%f", radius);
       }
       target_msg.vy = radius;

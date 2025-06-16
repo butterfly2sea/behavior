@@ -14,7 +14,14 @@ class OffBoardControl : public SyncActionBase<OffBoardControl> {
   OffBoardControl(const std::string &name, const BT::NodeConfig &config, NodeDependencies deps)
       : SyncActionBase<OffBoardControl>(name, config, deps) {}
 
-  static BT::PortsList providedPorts();
+  static BT::PortsList providedPorts() {
+    return {
+        BT::InputPort<custom_msgs::msg::OffboardCtrl>("ctrl", "控制指令"),
+        BT::InputPort<float>("yaw", 0.0f, "偏航角(弧度)"),
+        BT::InputPort<float>("zoffset", 0.0f, "Z轴偏移量(米)"),
+        BT::InputPort<float>("fixed", 0.0f, "固定Z轴高度(米)")
+    };
+  }
 
   BT::NodeStatus tick() override;
 

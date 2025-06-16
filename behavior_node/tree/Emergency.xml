@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <root BTCPP_format="4">
-    <BehaviorTree ID="Emergency-start">
+    <BehaviorTree ID="Emergency">
         <ReactiveFallback name="EmergencyHandler">
             <!-- 正常飞行模式 -->
             <Sequence name="NormalFlight">

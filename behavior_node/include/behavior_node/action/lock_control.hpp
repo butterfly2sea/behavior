@@ -13,7 +13,11 @@ class LockControl : public StatefulActionBase<LockControl> {
   LockControl(const std::string &name, const BT::NodeConfig &config, NodeDependencies deps)
       : StatefulActionBase<LockControl>(name, config, deps) {}
 
-  static BT::PortsList providedPorts();
+  static BT::PortsList providedPorts() {
+    return {
+        BT::InputPort<int>("state", 1, "锁定状态 (0-锁定, 1-解锁)")
+    };
+  }
 
   BT::NodeStatus onStart() override;
   BT::NodeStatus onRunning() override;

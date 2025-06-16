@@ -6,7 +6,6 @@
 #include <std_msgs/msg/int32.hpp>
 #include <std_msgs/msg/u_int8.hpp>
 #include <geometry_msgs/msg/polygon.hpp>
-#include <std_msgs/msg/int64.hpp>
 #include <std_msgs/msg/u_int8_multi_array.hpp>
 
 #include "behavior_node/data/ros_communication_manager.hpp"
@@ -14,19 +13,6 @@
 #include "behavior_node/data/mission_context.hpp"
 #include "behavior_node/data/data_cache.hpp"
 #include "behavior_node/utils/utility.hpp"
-
-BT::PortsList SetLineParameters::providedPorts() {
-  return {
-      BT::InputPort<float>("antiDis", 5.0f, "防撞距离"),
-      BT::InputPort<int>("type"),
-      BT::InputPort<std::string>("vehiTypParam", "vehiType", "vehicle type"),
-      BT::InputPort<std::string>("spdParam", "spd", "speed"),
-      BT::InputPort<std::string>("ptTypParam", "pointTag", "way point"),
-      BT::InputPort<std::string>("disParam", "arvDis", "arrival distance"),
-      BT::InputPort<std::string>("ptsParam", "wayPoints", "way with points and yaw"),
-      BT::InputPort<std::string>("lpsParam", "loops", "loops")
-  };
-}
 
 BT::NodeStatus SetLineParameters::tick() {
   txtLog().info(THISMODULE "SetLineParameters tick");

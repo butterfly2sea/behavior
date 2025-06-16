@@ -1,5 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <root BTCPP_format="4">
-    <BehaviorTree ID="TakeOff-start">
+    <BehaviorTree ID="TakeOff">
         <Sequence name="TakeOffSequence">
             <!-- 1. 解锁载具 -->
             <LockControl state="1" result="{unlock_result}" />
@@ -12,6 +13,7 @@
                     spdParam="spd"
                     disParam="arvDis"
                     ptTypParam="pointTag"
+                    result="{param_result}"
             />
 
             <!-- 3. 切换到起飞模式 -->
@@ -19,15 +21,16 @@
                     mode="4"
                     param7="-30.0"
                     altParam="alt"
+                    result="{mode_result}"
             />
 
             <!-- 4. 设置起飞目标点 -->
             <SetDestinationPoint
-                    target="{takeoff_ctrl}"
                     step="0"
-                    obsHgh="-60.0"
+                    obsHgh="-30.0"
                     altParam="alt"
                     ptTypParam="pointTag"
+                    target="{takeoff_ctrl}"
             />
 
             <!-- 5. 执行起飞控制循环 -->
@@ -37,14 +40,15 @@
                         target="{takeoff_ctrl}"
                         arvdis="3.0"
                         onlyz="true"
+                        arrived="{takeoff_arrived}"
                 />
                 <!-- 持续发送起飞控制指令 -->
                 <KeepRunningUntilFailure>
                     <Delay delay_msec="50">
                         <OffBoardControl
-                                zoffset="0.0"
-
+                                ctrl="{takeoff_ctrl}"
                                 yaw="0.0"
+                                result="{control_result}"
                         />
                     </Delay>
                 </KeepRunningUntilFailure>

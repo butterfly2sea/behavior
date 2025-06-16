@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <root BTCPP_format="4">
-    <BehaviorTree ID="PatternSearch-start">
+    <BehaviorTree ID="PatternSearch">
         <Sequence name="PatternSearchSequence">
             <!-- 1. 初始化搜索 -->
             <Sequence name="SearchInitialization">

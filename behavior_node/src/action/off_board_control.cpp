@@ -6,14 +6,6 @@
 #include "behavior_node/data/ros_interface_definitions.hpp"
 #include "behavior_node/utils/utility.hpp"
 
-BT::PortsList OffBoardControl::providedPorts() {
-  return {
-      BT::InputPort<float>("yaw"),
-      BT::InputPort<float>("zoffset"),
-      BT::InputPort<float>("fixed"),
-  };
-}
-
 BT::NodeStatus OffBoardControl::tick() {
   txtLog().info(THISMODULE "OffBoardControl: ticking");
   auto vehicle_state = cache()->getVehicleState();

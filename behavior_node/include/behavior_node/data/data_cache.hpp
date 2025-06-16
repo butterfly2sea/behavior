@@ -80,7 +80,7 @@ class Cache {
   void updateVehicleState(custom_msgs::msg::SimpleVehicle::SharedPtr msg) {
     if (msg) {
       vehicle_state_.update(std::move(msg));
-      txtLog().debug(THISMODULE "Updated vehicle state for ID: %d", vehicle_state_.get()->id);
+//      txtLog().debug(THISMODULE "Updated vehicle state for ID: %d", vehicle_state_.get()->id);
     }
   }
 
@@ -96,7 +96,7 @@ class Cache {
   void updateDetectedObjects(custom_msgs::msg::ObjectComputation::SharedPtr msg) {
     if (msg) {
       detected_objects_.update(std::move(msg));
-      txtLog().debug(THISMODULE "Updated detected objects wit id: %d", detected_objects_.get()->objs.size());
+//      txtLog().debug(THISMODULE "Updated detected objects wit id: %d", detected_objects_.get()->objs.size());
     }
   }
 

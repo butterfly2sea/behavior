@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <root BTCPP_format="4">
-    <BehaviorTree ID="FormFly-start">
+    <BehaviorTree ID="FormFly">
         <Sequence name="FormationFlightSequence">
             <!-- 1. 确保载具已解锁 -->
             <LockControl state="1" result="{unlock_result}" />
@@ -14,12 +14,14 @@
                     disParam="arvDis"
                     ptTypParam="pointTag"
                     ptsParam="wayPoints"
+                    result="{param_result}"
             />
 
             <!-- 3. 启动编队导航 -->
             <NavigationControl
                     frame="1"
                     command="0"
+                    result="{nav_result}"
             />
 
             <!-- 4. 编队飞行循环 -->
@@ -28,22 +30,24 @@
                 <KeepRunningUntilFailure>
                     <Sequence name="WaypointNavigation">
                         <SetDestinationPoint
-                                target="{formation_ctrl}"
                                 step="2"
                                 obsHgh="-40.0"
                                 ptsParam="wayPoints"
                                 ptTypParam="pointTag"
+                                target="{formation_ctrl}"
                         />
 
                         <ReactiveFallback>
                             <CheckArriveDestination
                                     target="{formation_ctrl}"
                                     arvdis="5.0"
+                                    arrived="{formation_arrived}"
                             />
                             <Delay delay_msec="100">
                                 <OffBoardControl
                                         ctrl="{formation_ctrl}"
                                         yaw="0.0"
+                                        result="{control_result}"
                                 />
                             </Delay>
                         </ReactiveFallback>
@@ -56,6 +60,7 @@
                         <NavigationControl
                                 frame="1"
                                 command="2"
+                                result="{formation_maintain_result}"
                         />
                     </Delay>
                 </KeepRunningUntilFailure>
