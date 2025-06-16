@@ -4,7 +4,7 @@
         <Sequence name="WaypointMissionSequence">
             <!-- 1. 初始化 -->
             <Sequence name="Initialization">
-                <LockControl state="1" result="{unlock_result}" />
+                <LockControl state="1" />
 
                 <SetLineParameters
                         type="127"

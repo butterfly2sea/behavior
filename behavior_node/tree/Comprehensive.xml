@@ -13,7 +13,7 @@
                         ptTypParam="pointTag"
                 />
 
-                <LockControl state="1" result="{unlock_result}" />
+                <LockControl state="1" />
             </Sequence>
 
             <!-- 阶段2: 起飞 -->

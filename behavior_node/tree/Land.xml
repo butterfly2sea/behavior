@@ -7,14 +7,10 @@
                     type="2"
                     antiDis="3.0"
                     vehiTypParam="vehiType"
-                    result="{param_result}"
             />
 
             <!-- 2. 切换到降落模式 -->
-            <FlightModeControl
-                    mode="5"
-                    result="{mode_result}"
-            />
+            <FlightModeControl mode="5"/>
 
             <!-- 3. 设置降落点 -->
             <SetDestinationPoint
@@ -26,11 +22,7 @@
             <!-- 4. 执行降落控制 -->
             <KeepRunningUntilFailure>
                 <Delay delay_msec="200">
-                    <OffBoardControl
-                            ctrl="{land_ctrl}"
-                            yaw="0.0"
-                            result="{control_result}"
-                    />
+                    <OffBoardControl ctrl="{land_ctrl}" yaw="0.0"/>
                 </Delay>
             </KeepRunningUntilFailure>
         </Sequence>

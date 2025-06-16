@@ -76,7 +76,6 @@ BT::NodeStatus SetDestinationPoint::tick() {
                                                target_msg.y);
       }
     }
-    setOutput("target", target_msg);
     txtLog().info(THISMODULE
                   "set target point to (%f, %f, %f) with yaw:%f",
                   target_msg.x,

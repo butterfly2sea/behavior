@@ -12,7 +12,6 @@
                     ptTypParam="pointTag"
                     ptsParam="wayPoints"
                     lpsParam="loops"
-                    result="{param_result}"
             />
 
             <!-- 简单的成功返回 -->

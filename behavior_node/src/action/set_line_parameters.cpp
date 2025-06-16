@@ -45,29 +45,29 @@ BT::NodeStatus SetLineParameters::tick() {
     ros()->publish<std_msgs::msg::Int32>(ros_interface::topics::SET_LOOPS, msg); // 发布循环次数
   }
 
-  auto vehicle_type =
-      context()->getParameter("vehiType").get<std::string>() == "多旋翼" ? VehicleType::Coper : VehicleType::FixWing;
-  cache()->updateVehicleType(vehicle_type);
   // 发布载具类型
   if (VEHICLE_TYP & set_type) {
+    auto vehicle_type =
+        context()->getParameter("vehiType").get<std::string>() == "多旋翼" ? VehicleType::Coper : VehicleType::FixWing;
+    cache()->updateVehicleType(vehicle_type);
     std_msgs::msg::UInt8 msg;
     msg.data = vehicle_type;
     ros()->publish<std_msgs::msg::UInt8>(ros_interface::topics::SET_VEHICLE_TYPE, msg); // 发布载具类型
   }
 
-  float speed = context()->getParameter("spd").get<float>();
-  context()->setSpeed(speed);
   // 发布速度
   if (SPD & set_type) {
+    float speed = context()->getParameter("spd").get<float>();
+    context()->setSpeed(speed);
     std_msgs::msg::Float32 msg;
     msg.data = speed;
     ros()->publish<std_msgs::msg::Float32>(ros_interface::topics::SET_SPEED, msg); // 发布速度
   }
 
-  float arv_dis = context()->getParameter("arvDis").get<float>();
-  context()->setArrivalDistance(arv_dis);
   // 发布到点距离
   if (ARV_DIS & set_type) {
+    float arv_dis = context()->getParameter("arvDis").get<float>();
+    context()->setArrivalDistance(arv_dis);
     std_msgs::msg::Float32 msg;
     msg.data = arv_dis;
     ros()->publish<std_msgs::msg::Float32>(ros_interface::topics::SET_ARRIVAL_DIS, msg); // 发布到点距离

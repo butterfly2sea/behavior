@@ -31,12 +31,10 @@ BT::NodeStatus LockControl::onRunning() {
     // 目前用response->success来判断是否成功，原版使用simpVehi的lock来判断是否成功
     if (response->success) {
       txtLog().info(THISMODULE "Lock command sent successfully");
-      setOutput("result", true);
       return BT::NodeStatus::SUCCESS;
     } else {
       txtLog().error(THISMODULE "Lock command response failed");
       setOutput("result", false);
-      return BT::NodeStatus::FAILURE;
     }
   }
   return BT::NodeStatus::RUNNING;
@@ -44,5 +42,4 @@ BT::NodeStatus LockControl::onRunning() {
 
 void LockControl::onHalted() {
   txtLog().info(THISMODULE "Lock command halted");
-  setOutput("result", false);
 }

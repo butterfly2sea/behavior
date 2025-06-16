@@ -4,7 +4,7 @@
         <Sequence name="PatternSearchSequence">
             <!-- 1. 初始化搜索 -->
             <Sequence name="SearchInitialization">
-                <LockControl state="1" result="{unlock_result}"/>
+                <LockControl state="1" />
 
                 <SetLineParameters
                         type="127"

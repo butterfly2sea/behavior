@@ -3,7 +3,7 @@
     <BehaviorTree ID="FormFly">
         <Sequence name="FormationFlightSequence">
             <!-- 1. 确保载具已解锁 -->
-            <LockControl state="1" result="{unlock_result}" />
+            <LockControl state="1" />
 
             <!-- 2. 设置编队参数 -->
             <SetLineParameters
@@ -14,18 +14,16 @@
                     disParam="arvDis"
                     ptTypParam="pointTag"
                     ptsParam="wayPoints"
-                    result="{param_result}"
             />
 
             <!-- 3. 启动编队导航 -->
             <NavigationControl
                     frame="1"
                     command="0"
-                    result="{nav_result}"
             />
 
             <!-- 4. 编队飞行循环 -->
-            <Parallel success_threshold="1" failure_threshold="1">
+            <Parallel success_count="1" failure_count="1">
                 <!-- 航点飞行控制 -->
                 <KeepRunningUntilFailure>
                     <Sequence name="WaypointNavigation">
@@ -41,13 +39,11 @@
                             <CheckArriveDestination
                                     target="{formation_ctrl}"
                                     arvdis="5.0"
-                                    arrived="{formation_arrived}"
                             />
                             <Delay delay_msec="100">
                                 <OffBoardControl
                                         ctrl="{formation_ctrl}"
                                         yaw="0.0"
-                                        result="{control_result}"
                                 />
                             </Delay>
                         </ReactiveFallback>
@@ -60,7 +56,6 @@
                         <NavigationControl
                                 frame="1"
                                 command="2"
-                                result="{formation_maintain_result}"
                         />
                     </Delay>
                 </KeepRunningUntilFailure>

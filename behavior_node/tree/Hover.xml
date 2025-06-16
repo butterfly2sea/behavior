@@ -3,7 +3,7 @@
     <BehaviorTree ID="Hover">
         <Sequence name="HoverSequence">
             <!-- 1. 确保解锁 -->
-            <LockControl state="1" result="{unlock_result}" />
+            <LockControl state="1"/>
 
             <!-- 2. 设置悬停参数 -->
             <SetLineParameters
@@ -23,10 +23,7 @@
             <!-- 4. 执行悬停控制 -->
             <KeepRunningUntilFailure>
                 <Delay delay_msec="100">
-                    <OffBoardControl
-                            ctrl="{hover_ctrl}"
-                            yaw="0.0"
-                    />
+                    <OffBoardControl ctrl="{hover_ctrl}" yaw="0.0"/>
                 </Delay>
             </KeepRunningUntilFailure>
         </Sequence>
