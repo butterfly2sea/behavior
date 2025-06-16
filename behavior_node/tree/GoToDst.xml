@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4">
+    <BehaviorTree ID="GotoDst-start">
+        <Sequence name="GotoDestinationSequence">
+            <!-- 1. 确保载具已解锁 -->
+            <LockControl state="1" result="{unlock_result}" />
+
+            <!-- 2. 设置飞行参数 -->
+            <SetLineParameters
+                    type="127"
+                    antiDis="5.0"
+                    vehiTypParam="vehiType"
+                    spdParam="spd"
+                    disParam="arvDis"
+                    ptTypParam="pointTag"
+                    ptsParam="dstLoc"
+            />
+
+            <!-- 3. 设置目标点 -->
+            <SetDestinationPoint
+                    target="{goto_ctrl}"
+                    step="2"
+                    obsHgh="-50.0"
+                    dstParam="dstLoc"
+                    ptTypParam="pointTag"
+            />
+
+            <!-- 4. 飞向目标点循环 -->
+            <ReactiveFallback name="GotoLoop">
+                <!-- 检查是否到达目标点 -->
+                <CheckArriveDestination
+                        target="{goto_ctrl}"
+                        arvdis="3.0"
+                        onlyz="false"
+                />
+                <!-- 持续发送控制指令 -->
+                <KeepRunningUntilFailure>
+                    <Delay delay_msec="100">
+                        <OffBoardControl
+                                ctrl="{goto_ctrl}"
+                                yaw="0.0"
+                        />
+                    </Delay>
+                </KeepRunningUntilFailure>
+            </ReactiveFallback>
+        </Sequence>
+    </BehaviorTree>
+</root>

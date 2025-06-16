@@ -11,6 +11,7 @@ BT::PortsList CheckQuitSearch::providedPorts() {
 }
 
 BT::NodeStatus CheckQuitSearch::tick() {
+  txtLog().info(THISMODULE "check quit search tick");
   auto object_computation = cache()->getDetectedObjects();
   if (uint8_t target = context()->getTargetId(); target != 0) {
     for (auto obj : object_computation->objs) {

@@ -14,6 +14,7 @@ BT::PortsList CheckArriveDestination::providedPorts() {
 }
 
 BT::NodeStatus CheckArriveDestination::tick() {
+  txtLog().info(THISMODULE "check arrive destination tick");
   // 获取目标位置
   custom_msgs::msg::OffboardCtrl target;
   float arrive_distance = 1.0;
@@ -22,7 +23,7 @@ BT::NodeStatus CheckArriveDestination::tick() {
   getInput("arvdis", arrive_distance);
   getInput("onlyz", only_check_z);
 
-  if (!cache()->isVehicleStateValid()) return BT::NodeStatus::FAILURE;
+//  if (!cache()->isVehicleStateValid()) return BT::NodeStatus::FAILURE;
 
   auto current = cache()->getVehicleState();
   if (only_check_z) {

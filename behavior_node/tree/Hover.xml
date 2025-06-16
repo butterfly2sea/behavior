@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4">
+    <BehaviorTree ID="Hover-start">
+        <Sequence name="HoverSequence">
+            <!-- 1. 确保解锁 -->
+            <LockControl state="1" result="{unlock_result}" />
+
+            <!-- 2. 设置悬停参数 -->
+            <SetLineParameters
+                    type="15"
+                    antiDis="2.0"
+                    vehiTypParam="vehiType"
+                    spdParam="spd"
+            />
+
+            <!-- 3. 设置悬停位置 -->
+            <SetDestinationPoint
+                    target="{hover_ctrl}"
+                    step="0"
+                    obsHgh="-25.0"
+            />
+
+            <!-- 4. 执行悬停控制 -->
+            <KeepRunningUntilFailure>
+                <Delay delay_msec="100">
+                    <OffBoardControl
+                            ctrl="{hover_ctrl}"
+                            yaw="0.0"
+                    />
+                </Delay>
+            </KeepRunningUntilFailure>
+        </Sequence>
+    </BehaviorTree>
+</root>

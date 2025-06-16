@@ -25,6 +25,7 @@ BT::PortsList SetDestinationPoint::providedPorts() {
 }
 
 BT::NodeStatus SetDestinationPoint::tick() {
+  txtLog().info(THISMODULE "set destination point tick");
   custom_msgs::msg::OffboardCtrl target_msg;
   target_msg.ordmask = OffBoardMask::LocCtrl + OffBoardMask::YawCtrl;
   // 获取目标点
@@ -51,8 +52,8 @@ BT::NodeStatus SetDestinationPoint::tick() {
   BT::Expected<int> step = getInput<int>("step");
   BT::Expected<float> obs_hgh = getInput<float>("obsHgh");
   if (step && obs_hgh) {
-    if (!cache()->isVehicleStateValid())
-      return BT::NodeStatus::FAILURE;
+//    if (!cache()->isVehicleStateValid())
+//      return BT::NodeStatus::FAILURE;
     auto simple_vehicle = cache()->getVehicleState();
     if (step.value() == EStep::CurHorObsHgh) {
       // 当前水平位置 障碍高度

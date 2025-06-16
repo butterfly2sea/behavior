@@ -29,6 +29,7 @@ BT::PortsList SetLineParameters::providedPorts() {
 }
 
 BT::NodeStatus SetLineParameters::tick() {
+  txtLog().info(THISMODULE "SetLineParameters tick");
   SetContentType set_type = SetContentType::ALL;
   if (!getInput("type", set_type)) {
     txtLog().error(THISMODULE "Missing 'type' input");
@@ -51,8 +52,8 @@ BT::NodeStatus SetLineParameters::tick() {
   }
 
   // 发布循环次数
-  int loops = context()->getParameter("loops").get<int>();
   if (LOOPS & set_type) {
+    int loops = context()->getParameter("loops").get<int>();
     std_msgs::msg::Int32 msg;
     msg.data = loops;
     ros()->publish<std_msgs::msg::Int32>(ros_interface::topics::SET_LOOPS, msg); // 发布循环次数

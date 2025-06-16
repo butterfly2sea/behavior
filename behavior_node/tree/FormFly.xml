@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4">
+    <BehaviorTree ID="FormFly-start">
+        <Sequence name="FormationFlightSequence">
+            <!-- 1. 确保载具已解锁 -->
+            <LockControl state="1" result="{unlock_result}" />
+
+            <!-- 2. 设置编队参数 -->
+            <SetLineParameters
+                    type="1023"
+                    antiDis="8.0"
+                    vehiTypParam="vehiType"
+                    spdParam="spd"
+                    disParam="arvDis"
+                    ptTypParam="pointTag"
+                    ptsParam="wayPoints"
+            />
+
+            <!-- 3. 启动编队导航 -->
+            <NavigationControl
+                    frame="1"
+                    command="0"
+            />
+
+            <!-- 4. 编队飞行循环 -->
+            <Parallel success_threshold="1" failure_threshold="1">
+                <!-- 航点飞行控制 -->
+                <KeepRunningUntilFailure>
+                    <Sequence name="WaypointNavigation">
+                        <SetDestinationPoint
+                                target="{formation_ctrl}"
+                                step="2"
+                                obsHgh="-40.0"
+                                ptsParam="wayPoints"
+                                ptTypParam="pointTag"
+                        />
+
+                        <ReactiveFallback>
+                            <CheckArriveDestination
+                                    target="{formation_ctrl}"
+                                    arvdis="5.0"
+                            />
+                            <Delay delay_msec="100">
+                                <OffBoardControl
+                                        ctrl="{formation_ctrl}"
+                                        yaw="0.0"
+                                />
+                            </Delay>
+                        </ReactiveFallback>
+                    </Sequence>
+                </KeepRunningUntilFailure>
+
+                <!-- 编队保持控制 -->
+                <KeepRunningUntilFailure>
+                    <Delay delay_msec="1000">
+                        <NavigationControl
+                                frame="1"
+                                command="2"
+                        />
+                    </Delay>
+                </KeepRunningUntilFailure>
+            </Parallel>
+        </Sequence>
+    </BehaviorTree>
+</root>

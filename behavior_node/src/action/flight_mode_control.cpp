@@ -17,6 +17,7 @@ BT::PortsList FlightModeControl::providedPorts() {
 }
 
 BT::NodeStatus FlightModeControl::onStart() {
+  txtLog().info(THISMODULE "Starting flight mode control");
   int target_mode = 0;
   if (!getInput("mode", target_mode)) {
     txtLog().error(THISMODULE "Failed to get input mode");
@@ -50,6 +51,7 @@ BT::NodeStatus FlightModeControl::onStart() {
 }
 
 BT::NodeStatus FlightModeControl::onRunning() {
+  txtLog().info(THISMODULE "Waiting for service response");
   if (!future_.valid()) {
     return BT::NodeStatus::FAILURE;
   }

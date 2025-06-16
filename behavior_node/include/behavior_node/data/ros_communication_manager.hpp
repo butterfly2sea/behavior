@@ -505,7 +505,7 @@ class ROSCommunicationManager {
 
     publishTaskStatus(stage_sn, StatusStage::StsNoStart);
 
-    std::string tree_name = action_name + "_start";
+    std::string tree_name = action_name;
     requestTreeLoad(tree_name);
 
     txtLog().info(THISMODULE "Started mission: %s, Stage: %d",

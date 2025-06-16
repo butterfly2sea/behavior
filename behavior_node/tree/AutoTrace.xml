@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4">
+    <BehaviorTree ID="AutoTrace-start">
+        <Sequence name="AutoTraceSequence">
+            <!-- 1. 确保载具已解锁 -->
+            <LockControl state="1" result="{unlock_result}" />
+
+            <!-- 2. 设置跟踪参数 -->
+            <SetLineParameters
+                    type="15"
+                    antiDis="8.0"
+                    vehiTypParam="vehiType"
+                    spdParam="spd"
+            />
+
+            <!-- 3. 搜索和跟踪循环 -->
+            <ReactiveFallback name="SearchAndTrace">
+                <!-- 检查是否退出搜索（找到目标） -->
+                <CheckQuitSearch />
+
+                <!-- 继续搜索模式 -->
+                <KeepRunningUntilFailure>
+                    <Sequence name="SearchPattern">
+                        <!-- 设置搜索位置 -->
+                        <SetDestinationPoint
+                                target="{search_ctrl}"
+                                step="0"
+                                obsHgh="-30.0"
+                        />
+
+                        <!-- 延迟执行控制 -->
+                        <Delay delay_msec="500">
+                            <OffBoardControl
+                                    ctrl="{search_ctrl}"
+                                    yaw="0.0"
+                            />
+                        </Delay>
+                    </Sequence>
+                </KeepRunningUntilFailure>
+            </ReactiveFallback>
+        </Sequence>
+    </BehaviorTree>
+</root>

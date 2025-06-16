@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4">
+    <BehaviorTree ID="Land-start">
+        <Sequence name="LandingSequence">
+            <!-- 1. 设置降落参数 -->
+            <SetLineParameters
+                    type="2"
+                    antiDis="3.0"
+                    vehiTypParam="vehiType"
+            />
+
+            <!-- 2. 切换到降落模式 -->
+            <FlightModeControl
+                    mode="5"
+            />
+
+            <!-- 3. 设置降落点 -->
+            <SetDestinationPoint
+                    target="{land_ctrl}"
+                    step="0"
+                    obsHgh="-5.0"
+            />
+
+            <!-- 4. 执行降落控制 -->
+            <KeepRunningUntilFailure>
+                <Delay delay_msec="200">
+                    <OffBoardControl
+                            ctrl="{land_ctrl}"
+                            yaw="0.0"
+                    />
+                </Delay>
+            </KeepRunningUntilFailure>
+        </Sequence>
+    </BehaviorTree>
+</root>

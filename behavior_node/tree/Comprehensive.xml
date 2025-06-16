@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4">
+    <BehaviorTree ID="ComprehensiveMission-start">
+        <Sequence name="ComprehensiveMissionSequence">
+            <!-- 阶段1: 初始化和解锁 -->
+            <Sequence name="InitializationPhase">
+                <SetLineParameters
+                        type="1023"
+                        antiDis="5.0"
+                        vehiTypParam="vehiType"
+                        spdParam="spd"
+                        disParam="arvDis"
+                        ptTypParam="pointTag"
+                />
+
+                <LockControl state="1" result="{unlock_result}" />
+            </Sequence>
+
+            <!-- 阶段2: 起飞 -->
+            <Sequence name="TakeoffPhase">
+                <FlightModeControl mode="4" param7="-30.0" />
+
+                <SetDestinationPoint
+                        target="{takeoff_ctrl}"
+                        step="0"
+                        obsHgh="-30.0"
+                />
+
+                <ReactiveFallback>
+                    <CheckArriveDestination
+                            target="{takeoff_ctrl}"
+                            arvdis="3.0"
+                            onlyz="true"
+                    />
+                    <Repeat num_cycles="50">
+                        <Delay delay_msec="200">
+                            <OffBoardControl
+                                    ctrl="{takeoff_ctrl}"
+                                    yaw="0.0"
+                            />
+                        </Delay>
+                    </Repeat>
+                </ReactiveFallback>
+            </Sequence>
+
+            <!-- 阶段3: 飞向目标区域 -->
+            <Sequence name="NavigationPhase">
+                <SetDestinationPoint
+                        target="{nav_ctrl}"
+                        step="2"
+                        obsHgh="-25.0"
+                        dstParam="dstLoc"
+                />
+
+                <ReactiveFallback>
+                    <CheckArriveDestination
+                            target="{nav_ctrl}"
+                            arvdis="5.0"
+                    />
+                    <Repeat num_cycles="100">
+                        <Delay delay_msec="100">
+                            <OffBoardControl
+                                    ctrl="{nav_ctrl}"
+                                    yaw="0.0"
+                            />
+                        </Delay>
+                    </Repeat>
+                </ReactiveFallback>
+            </Sequence>
+
+            <!-- 阶段4: 搜索和跟踪 -->
+            <Sequence name="SearchPhase">
+                <Inverter>
+                    <KeepRunningUntilFailure>
+                        <Sequence>
+                            <Delay delay_msec="1000">
+                                <Inverter>
+                                    <CheckQuitSearch />
+                                </Inverter>
+                            </Delay>
+
+                            <SetDestinationPoint
+                                    target="{search_ctrl}"
+                                    step="0"
+                                    obsHgh="-25.0"
+                            />
+
+                            <OffBoardControl
+                                    ctrl="{search_ctrl}"
+                                    yaw="0.0"
+                            />
+                        </Sequence>
+                    </KeepRunningUntilFailure>
+                </Inverter>
+            </Sequence>
+
+            <!-- 阶段5: 降落 -->
+            <Sequence name="LandingPhase">
+                <FlightModeControl mode="5" />
+
+                <SetDestinationPoint
+                        target="{land_ctrl}"
+                        step="0"
+                        obsHgh="-5.0"
+                />
+
+                <Repeat num_cycles="50">
+                    <Delay delay_msec="200">
+                        <OffBoardControl
+                                ctrl="{land_ctrl}"
+                                yaw="0.0"
+                        />
+                    </Delay>
+                </Repeat>
+            </Sequence>
+        </Sequence>
+    </BehaviorTree>
+</root>

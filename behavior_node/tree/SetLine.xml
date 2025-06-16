@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4">
+    <BehaviorTree ID="SetLine-start">
+        <Sequence name="ParameterConfigSequence">
+            <!-- 设置所有参数 -->
+            <SetLineParameters
+                    type="1023"
+                    antiDis="5.0"
+                    vehiTypParam="vehiType"
+                    spdParam="spd"
+                    disParam="arvDis"
+                    ptTypParam="pointTag"
+                    ptsParam="wayPoints"
+                    lpsParam="loops"
+            />
+
+            <!-- 简单的成功返回 -->
+            <AlwaysSuccess />
+        </Sequence>
+    </BehaviorTree>
+</root>

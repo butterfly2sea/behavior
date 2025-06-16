@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4">
+    <BehaviorTree ID="WaypointMission-start">
+        <Sequence name="WaypointMissionSequence">
+            <!-- 1. 初始化 -->
+            <Sequence name="Initialization">
+                <LockControl state="1" result="{unlock_result}" />
+
+                <SetLineParameters
+                        type="127"
+                        antiDis="5.0"
+                        vehiTypParam="vehiType"
+                        spdParam="spd"
+                        disParam="arvDis"
+                        ptTypParam="pointTag"
+                        ptsParam="wayPoints"
+                        lpsParam="loops"
+                />
+            </Sequence>
+
+            <!-- 2. 航点飞行循环 -->
+            <KeepRunningUntilFailure>
+                <Sequence name="WaypointLoop">
+                    <!-- 获取下一个航点 -->
+                    <SetDestinationPoint
+                            target="{waypoint_ctrl}"
+                            step="2"
+                            ptsParam="wayPoints"
+                            ptTypParam="pointTag"
+                    />
+
+                    <!-- 飞向航点 -->
+                    <ReactiveFallback>
+                        <CheckArriveDestination
+                                target="{waypoint_ctrl}"
+                                arvdis="3.0"
+                        />
+                        <KeepRunningUntilFailure>
+                            <Delay delay_msec="100">
+                                <OffBoardControl
+                                        ctrl="{waypoint_ctrl}"
+                                        yaw="0.0"
+                                />
+                            </Delay>
+                        </KeepRunningUntilFailure>
+                    </ReactiveFallback>
+
+                    <!-- 在航点停留一段时间 -->
+                    <Delay delay_msec="2000">
+                        <OffBoardControl
+                                ctrl="{waypoint_ctrl}"
+                                yaw="0.0"
+                        />
+                    </Delay>
+                </Sequence>
+            </KeepRunningUntilFailure>
+        </Sequence>
+    </BehaviorTree>
+</root>
