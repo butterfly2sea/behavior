@@ -7,6 +7,7 @@
 #include "behavior_node/data/mission_context.hpp"
 
 BT::NodeStatus FlightModeControl::onStart() {
+  start_time_ = std::chrono::steady_clock::now();
   txtLog().info(THISMODULE "Starting flight mode control");
   int target_mode = 0;
   if (!getInput("mode", target_mode)) {
@@ -42,10 +43,15 @@ BT::NodeStatus FlightModeControl::onStart() {
 
 BT::NodeStatus FlightModeControl::onRunning() {
   txtLog().info(THISMODULE "Waiting for service response");
+  auto elapsed = std::chrono::steady_clock::now() - start_time_;
+  if (elapsed> timeout_){
+    txtLog().error(THISMODULE "Timeout waiting for service response");
+    return BT::NodeStatus::FAILURE;
+  }
   if (!future_.valid()) {
     return BT::NodeStatus::FAILURE;
   }
-  if (future_.wait_for(std::chrono::milliseconds(50)) == std::future_status::ready) {
+  if (future_.wait_for(std::chrono::milliseconds(5)) == std::future_status::ready) {
     auto result = future_.get();
     if (result->success) {
       txtLog().info(THISMODULE "Mode change success");

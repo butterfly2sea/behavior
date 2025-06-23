@@ -7,6 +7,7 @@
 
 BT::NodeStatus NavigationControl::onStart() {
   txtLog().info(THISMODULE "NavigationControl: Starting navigation control");
+  start_time_ = std::chrono::steady_clock::now();
   uint8_t frame = 1; // 节点自己进行offboard控制
   uint8_t command = 0; // 默认使用开始编队飞行
   if (!getInput("frame", frame)) frame = 1; // 没有参数则使用1（节点自己进行offboard控制）
@@ -24,7 +25,12 @@ BT::NodeStatus NavigationControl::onStart() {
 
 BT::NodeStatus NavigationControl::onRunning() {
   txtLog().info(THISMODULE "NavigationControl: Navigation control running");
-  if (future_.valid() && future_.wait_for(std::chrono::milliseconds(50)) == std::future_status::ready) {
+  auto elapsed = std::chrono::steady_clock::now() - start_time_;
+  if (elapsed> timeout_){
+    txtLog().error(THISMODULE "Timeout waiting for service response");
+    return BT::NodeStatus::FAILURE;
+  }
+  if (future_.valid() && future_.wait_for(std::chrono::milliseconds(5)) == std::future_status::ready) {
     auto response = future_.get();
     if (response->success) {
       txtLog().info(THISMODULE "Navigation command sent successfully");

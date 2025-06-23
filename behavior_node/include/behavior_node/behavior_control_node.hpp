@@ -1,4 +1,3 @@
-// behavior_node/include/behavior_node/behavior_control_node.hpp
 #pragma once
 
 #include <rclcpp/rclcpp.hpp>
@@ -103,15 +102,6 @@ class BehaviorControlNode : public rclcpp::Node {
     declare_parameter<int>("watchdog_interval_ms", 5000);
     declare_parameter<int>("tick_interval_ms", 50);
     declare_parameter<int>("message_queue_size", 100);
-
-    // 行为树结果发布相关参数
-    declare_parameter<bool>("publish_tree_results", true);
-    declare_parameter<std::string>("tree_result_topic", "behavior_tree_result");
-
-    // 其他参数
-    declare_parameter<bool>("enable_detailed_logging", false);
-    declare_parameter<bool>("log_offboard_commands", true);
-    declare_parameter<bool>("log_service_calls", true);
   }
 
   void loadParameters() {
@@ -180,9 +170,9 @@ class BehaviorControlNode : public rclcpp::Node {
   void publishStatus() {
     if (!mission_context_ || !data_cache_ || !behavior_executor_) return;
 
-    auto system_state = mission_context_->getSystemState();
-    bool executor_running = behavior_executor_->isRunning();
-    std::string current_tree = behavior_executor_->getCurrentTreeName();
+//    auto system_state = mission_context_->getSystemState();
+//    bool executor_running = behavior_executor_->isRunning();
+//    std::string current_tree = behavior_executor_->getCurrentTreeName();
 
 //    txtLog().debug(
 //        THISMODULE

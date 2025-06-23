@@ -76,9 +76,8 @@ class ROSCommunicationManager {
 
   template<typename T>
   bool publish(const std::string &topic, const T &msg) {
-    auto it = publishers_.find(topic);
-    if (it != publishers_.end()) {
-      if (auto publisher = std::dynamic_pointer_cast<rclcpp::Publisher<T>>(it->second)) {
+    if (publishers_.contains(topic)) {
+      if (auto publisher = std::dynamic_pointer_cast<rclcpp::Publisher<T>>(publishers_.at(topic))) {
         try {
           publisher->publish(msg);
           return true;
@@ -95,12 +94,13 @@ class ROSCommunicationManager {
   }
 
   bool isServiceReady(const std::string &service_name) {
-    auto it = service_clients_.find(service_name);
-    if (it != service_clients_.end()) {
-      if (auto client = std::dynamic_pointer_cast<rclcpp::ClientBase>(it->second)) {
-        return client->wait_for_service(std::chrono::milliseconds(50)) &&
+    if (service_clients_.contains(service_name)) {
+      if (auto client = std::dynamic_pointer_cast<rclcpp::ClientBase>(service_clients_.at(service_name))) {
+        return client->wait_for_service(std::chrono::milliseconds(5)) &&
             client->service_is_ready();
       }
+    } else {
+      txtLog().error(THISMODULE "Service client not found for service: %s", service_name.c_str());
     }
     return false;
   }
@@ -108,16 +108,18 @@ class ROSCommunicationManager {
   template<typename ServiceT>
   auto callService(const std::string &service_name,
                    typename ServiceT::Request::SharedPtr request) {
-    auto it = service_clients_.find(service_name);
-    if (it != service_clients_.end()) {
-      if (auto client = std::dynamic_pointer_cast<rclcpp::Client<ServiceT>>(it->second)) {
+    if (service_clients_.contains(service_name)) {
+      if (auto client = std::dynamic_pointer_cast<rclcpp::Client<ServiceT>>(service_clients_.at(service_name))) {
         try {
-          return client->async_send_request(request);
+          auto result = client->async_send_request(request);
+          return result;
         } catch (const std::exception &e) {
           txtLog().error(THISMODULE "Failed to call service %s: %s",
                          service_name.c_str(), e.what());
         }
       }
+    } else {
+      txtLog().error(THISMODULE "Service client not found for service: %s", service_name.c_str());
     }
     return std::shared_future<typename ServiceT::Response::SharedPtr>{};
   }

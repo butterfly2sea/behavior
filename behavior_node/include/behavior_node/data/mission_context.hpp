@@ -139,8 +139,12 @@ class MissionContext {
 
   nlohmann::json getParameter(const std::string &key) const {
     std::lock_guard<std::mutex> lock(data_mutex_);
-    auto it = parameters_.find(key);
-    return it != parameters_.end() ? it->second : nlohmann::json{};
+    if (parameters_.contains(key)){
+      return parameters_.at(key);
+    } else{
+      txtLog().error(THISMODULE "Parameter not found: %s", key.c_str());
+      return {};
+    }
   }
 
   std::unordered_map<std::string, nlohmann::json> getAllParameters() const {
@@ -150,7 +154,7 @@ class MissionContext {
 
   bool hasParameter(const std::string &key) const {
     std::lock_guard<std::mutex> lock(data_mutex_);
-    return parameters_.find(key) != parameters_.end();
+    return parameters_.contains(key);
   }
 
   // 触发器管理
@@ -162,8 +166,12 @@ class MissionContext {
 
   nlohmann::json getTrigger(const std::string &name) const {
     std::lock_guard<std::mutex> lock(data_mutex_);
-    auto it = triggers_.find(name);
-    return it != triggers_.end() ? it->second : nlohmann::json{};
+    if (triggers_.contains(name)){
+      return triggers_.at(name);
+    } else{
+      txtLog().error(THISMODULE "Trigger not found: %s", name.c_str());
+      return {};
+    }
   }
 
   // 组管理

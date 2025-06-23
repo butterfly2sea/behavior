@@ -54,6 +54,9 @@ template<typename Derived>
 class StatefulActionBase : public NodeBase<Derived, BT::StatefulActionNode> {
  public:
   using NodeBase<Derived, BT::StatefulActionNode>::NodeBase;
+ protected:
+  std::chrono::steady_clock::time_point start_time_;
+  std::chrono::milliseconds timeout_{10000};
 };
 
 // 条件节点基类

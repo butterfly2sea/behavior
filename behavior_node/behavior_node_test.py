@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Unified Behavior Node Test Suite (Python 3.8+ Compatible)
-整合了服务模拟和测试功能的统一测试工具，兼容Python 3.8+
+Behavior Node Test Suite (Python 3.8+ Compatible)
+行为树测试工具，兼容Python 3.8+
 """
 
 import rclpy
@@ -135,15 +135,12 @@ class BehaviorNodeTester(Node):
         self.test_start_time = 0.0
         self.test_timeout = 60.0
 
-        # 配置参数 - 修复：减少延迟，提高响应速度
+        # 配置参数
         self.vehicle_id = 1
         self.enable_detailed_logging = True
         self.success_rate = 0.95
-        self.response_delay = 0.01  # 修复：从0.1降到0.01，大幅减少服务响应延迟
+        self.response_delay = 0.1
         self.simulate_failures = False  # 默认不模拟失败
-
-        # 添加：服务响应监控
-        self.service_response_times: Dict[str, List[float]] = {}
 
         # 初始化ROS接口
         self._setup_qos_profiles()
@@ -211,15 +208,6 @@ class BehaviorNodeTester(Node):
         self.offboard_sub = self.create_subscription(
             OffboardCtrl, 'inner/control/offboard',
             self._offboard_callback, self.qos_control)
-
-        # 行为树执行结果订阅 - 这是测试判断的主要依据
-        self.tree_result_sub = self.create_subscription(
-            String, 'behavior_tree_result',
-            self._tree_result_callback, self.qos_control)
-
-        # 存储最新的行为树执行结果
-        self.latest_tree_result: Optional[Dict[str, Any]] = None
-        self.tree_results_history: List[Dict[str, Any]] = []
 
     def _setup_services(self) -> None:
         """设置服务模拟器"""
@@ -356,9 +344,8 @@ class BehaviorNodeTester(Node):
 
     def _simulate_delay(self) -> None:
         """模拟服务响应延迟"""
-        # 修复：减少延迟时间，避免服务响应过慢
         if self.response_delay > 0:
-            time.sleep(min(self.response_delay, 0.05))  # 最大延迟50ms
+            time.sleep(self.response_delay)
 
     def _should_succeed(self, service_name: str) -> bool:
         """判断服务是否应该成功"""
@@ -368,45 +355,15 @@ class BehaviorNodeTester(Node):
         return random.random() < self.success_rate
 
     def _increment_call_count(self, service_name: str) -> None:
-        """增加服务调用计数并记录响应时间"""
+        """增加服务调用计数"""
         self.service_call_count[service_name] = self.service_call_count.get(service_name, 0) + 1
         self.service_calls.append(service_name)
-
-        # 记录服务调用开始时间
-        if not hasattr(self, '_service_call_start_time'):
-            self._service_call_start_time = {}
-        self._service_call_start_time[service_name] = time.time()
-
-    def _record_service_response_time(self, service_name: str) -> None:
-        """记录服务响应时间"""
-        if hasattr(self, '_service_call_start_time') and service_name in self._service_call_start_time:
-            response_time = time.time() - self._service_call_start_time[service_name]
-
-            if service_name not in self.service_response_times:
-                self.service_response_times[service_name] = []
-
-            self.service_response_times[service_name].append(response_time)
-
-            if self.enable_detailed_logging:
-                self.get_logger().info(f"Service '{service_name}' responded in {response_time * 1000:.1f}ms")
-
-            # 如果响应时间过长，发出警告
-            if response_time > 0.5:  # 500ms
-                self.get_logger().warn(f"Service '{service_name}' slow response: {response_time * 1000:.1f}ms")
-
-            # 清理记录
-            del self._service_call_start_time[service_name]
 
     def _handle_flight_mode(self, request: CommandLong.Request, response: CommandLong.Response) -> CommandLong.Response:
         """处理飞行模式控制请求"""
         service_name = "set_flymode"
         self._increment_call_count(service_name)
-
-        self.get_logger().info(f"Processing flight mode request: {request.command}")
-
-        # 最小化延迟
-        if self.response_delay > 0:
-            time.sleep(min(self.response_delay, 0.01))
+        self._simulate_delay()
 
         try:
             flight_mode = FlightMode(request.command)
@@ -416,8 +373,7 @@ class BehaviorNodeTester(Node):
                 'mode': flight_mode.name,
                 'command': request.command,
                 'param7': takeoff_altitude,
-                'timestamp': time.time(),
-                'success': True  # 预设成功
+                'timestamp': time.time()
             }
 
             self.mode_changes.append(request.command)
@@ -425,9 +381,7 @@ class BehaviorNodeTester(Node):
             if flight_mode == FlightMode.TAKEOFF and self.vehicle_sim_state.is_locked:
                 response.success = False
                 response.result = 1
-                self.last_commands[service_name]['success'] = False
                 self.get_logger().warn(f"Takeoff rejected: Vehicle locked")
-                self._record_service_response_time(service_name)
                 return response
 
             if self._should_succeed(service_name):
@@ -442,43 +396,28 @@ class BehaviorNodeTester(Node):
             else:
                 response.success = False
                 response.result = 5
-                self.last_commands[service_name]['success'] = False
                 self.get_logger().warn(f"Flight mode change failed (simulated)")
 
         except ValueError:
             response.success = False
             response.result = 6
-            self.last_commands[service_name] = {
-                'command': request.command,
-                'timestamp': time.time(),
-                'success': False
-            }
             self.get_logger().error(f"Invalid flight mode command: {request.command}")
 
-        # 记录响应时间
-        self._record_service_response_time(service_name)
         return response
 
     def _handle_lock_unlock(self, request: CommandBool.Request, response: CommandBool.Response) -> CommandBool.Response:
         """处理锁定/解锁控制请求"""
         service_name = "lock_unlock"
         self._increment_call_count(service_name)
+        self._simulate_delay()
 
-        # 修复：先记录请求，再处理延迟
         unlock_requested = request.value
         action = "unlock" if unlock_requested else "lock"
-
-        self.get_logger().info(f"Processing {action} request...")
-
-        # 最小化延迟，立即处理
-        if self.response_delay > 0:
-            time.sleep(min(self.response_delay, 0.01))  # 最大10ms延迟
 
         self.last_commands[service_name] = {
             'action': action,
             'value': unlock_requested,
-            'timestamp': time.time(),
-            'success': True  # 预设成功，便于测试检查
+            'timestamp': time.time()
         }
 
         if self._should_succeed(service_name):
@@ -491,11 +430,8 @@ class BehaviorNodeTester(Node):
         else:
             response.success = False
             response.result = False
-            self.last_commands[service_name]['success'] = False
             self.get_logger().warn(f"Failed to {action} vehicle (simulated)")
 
-        # 记录响应时间
-        self._record_service_response_time(service_name)
         return response
 
     def _handle_formation_switch(self, request: CommandInt.Request,
@@ -643,7 +579,6 @@ class BehaviorNodeTester(Node):
         if self.enable_detailed_logging:
             self.get_logger().info(f"Task status: stage={msg.stage}, id={msg.id}, status={msg.status}")
 
-        # 行为树结果现在是主要判断依据，这里只做记录
         if self.current_test:
             self._check_test_completion()
 
@@ -668,33 +603,6 @@ class BehaviorNodeTester(Node):
         # 限制命令历史
         if len(self.offboard_commands) > 100:
             self.offboard_commands = self.offboard_commands[-50:]
-
-    def _tree_result_callback(self, msg: String) -> None:
-        """行为树执行结果回调 - 测试判断的主要依据"""
-        try:
-            result_data = json.loads(msg.data)
-            self.latest_tree_result = result_data
-            self.tree_results_history.append(result_data)
-
-            if self.enable_detailed_logging:
-                self.get_logger().info(
-                    f"Tree result: {result_data.get('tree_name', 'unknown')} - "
-                    f"{result_data.get('status_string', 'unknown')} "
-                    f"({result_data.get('duration', 0):.2f}s)"
-                )
-
-            # 限制历史记录数量
-            if len(self.tree_results_history) > 50:
-                self.tree_results_history = self.tree_results_history[-25:]
-
-            # 检查测试完成状态
-            if self.current_test:
-                self._check_test_completion()
-
-        except json.JSONDecodeError as e:
-            self.get_logger().error(f"Failed to parse tree result JSON: {e}")
-        except Exception as e:
-            self.get_logger().error(f"Error handling tree result: {e}")
 
     # =================== 测试逻辑 ===================
 
@@ -724,7 +632,7 @@ class BehaviorNodeTester(Node):
             return
 
     def _evaluate_test_success(self) -> Tuple[bool, str]:
-        """评估测试成功条件 - 主要基于行为树执行结果"""
+        """评估测试成功条件"""
         if not self.current_test:
             return False, "No current test"
 
@@ -732,71 +640,6 @@ class BehaviorNodeTester(Node):
         current_time = time.time()
         test_duration = current_time - self.test_start_time
 
-        # 首先检查是否有行为树执行结果
-        if self.latest_tree_result:
-            tree_result = self.latest_tree_result
-            result_tree_name = tree_result.get('tree_name', '')
-            result_status = tree_result.get('status', -1)
-            result_status_str = tree_result.get('status_string', 'UNKNOWN')
-            result_duration = tree_result.get('duration', 0.0)
-
-            # 检查是否是当前测试的行为树结果
-            expected_tree_name = test.tree_name
-            if expected_tree_name and result_tree_name:
-                # 移除可能的后缀比较，比如 "TakeOff-start" vs "TakeOff"
-                tree_match = (result_tree_name == expected_tree_name or
-                              result_tree_name.startswith(expected_tree_name + "-") or
-                              expected_tree_name.startswith(result_tree_name + "-"))
-
-                if tree_match:
-                    if result_status == 0:  # SUCCESS
-                        # 验证一些基本条件仍然满足
-                        if self._verify_basic_conditions(test, test_duration):
-                            return True, f"Tree '{result_tree_name}' completed successfully in {result_duration:.2f}s"
-                    elif result_status == 1:  # FAILURE
-                        return False, f"Tree '{result_tree_name}' failed: {tree_result.get('error_message', 'Unknown error')}"
-                    elif result_status == 2:  # TIMEOUT
-                        return False, f"Tree '{result_tree_name}' timed out after {result_duration:.2f}s"
-                    elif result_status == 3:  # HALTED
-                        return False, f"Tree '{result_tree_name}' was halted"
-
-        # 如果没有行为树结果，回退到传统的判断方法
-        # 但只对不需要行为树的测试（如SetHome）
-        if not test.tree_name:
-            return self._evaluate_legacy_success_conditions(test, test_duration)
-
-        # 对于需要行为树的测试，如果没有结果，检查是否超时
-        min_duration = test.success_criteria.get('min_duration', 3.0)
-        if test_duration < min_duration:
-            return False, f"Test duration {test_duration:.1f}s < minimum {min_duration}s, waiting for tree result..."
-
-        # 如果等待时间过长仍无结果，可能是行为树未启动
-        if test_duration > min_duration + 5.0:
-            return False, f"No tree execution result received after {test_duration:.1f}s"
-
-        return False, f"Waiting for tree execution result... ({test_duration:.1f}s)"
-
-    def _verify_basic_conditions(self, test: TestCase, test_duration: float) -> bool:
-        """验证基本条件（在行为树成功的基础上）"""
-        # 基本运行时间要求
-        min_duration = test.success_criteria.get('min_duration', 1.0)
-        if test_duration < min_duration:
-            return False
-
-        # 检查必需的服务调用（如果需要）
-        for required_service in test.required_services:
-            if required_service not in self.service_calls:
-                return False
-
-        # 检查必需的模式变化（如果需要）
-        for required_mode in test.required_mode_changes:
-            if required_mode not in self.mode_changes:
-                return False
-
-        return True
-
-    def _evaluate_legacy_success_conditions(self, test: TestCase, test_duration: float) -> Tuple[bool, str]:
-        """传统的成功条件评估（用于不依赖行为树的测试）"""
         # 基本运行时间要求
         min_duration = test.success_criteria.get('min_duration', 3.0)
         if test_duration < min_duration:
@@ -818,40 +661,52 @@ class BehaviorNodeTester(Node):
                 return False, f"Required service call {required_service} not detected"
 
         # 特定测试的成功条件
-        if test.name == "SetHome":
-            return True, f"Home set command completed after {test_duration:.1f}s"
+        if test.tree_name == "LockCtrl":
+            if "lock_unlock" not in self.service_calls:
+                return False, "Lock/unlock service not called"
+            if self.vehicle_sim_state.is_locked:  # 应该是解锁状态
+                return False, "Vehicle not in unlocked state"
 
-        return True, f"All legacy success criteria met after {test_duration:.1f}s"
+        elif test.tree_name == "TakeOff":
+            if FlightMode.TAKEOFF.value not in self.mode_changes:
+                return False, "Takeoff mode not activated"
+            if len(self.offboard_commands) < 10:
+                return False, f"Insufficient takeoff control commands: {len(self.offboard_commands)}"
+
+        elif test.tree_name == "GotoDst":
+            if len(self.offboard_commands) < 15:
+                return False, f"Insufficient navigation commands: {len(self.offboard_commands)}"
+            # 检查位置是否接近目标
+            target_reached = self._check_position_reached(100.0, 50.0, -25.0, tolerance=20.0)
+            if not target_reached:
+                return False, "Target position not reached"
+
+        elif test.tree_name == "AutoTrace":
+            if len(self.offboard_commands) < 8:
+                return False, f"Insufficient trace commands: {len(self.offboard_commands)}"
+
+        elif test.tree_name == "Land":
+            if FlightMode.LAND.value not in self.mode_changes:
+                return False, "Land mode not activated"
+
+        elif test.tree_name == "FormFly":
+            if "form_switch" not in self.service_calls:
+                return False, "Formation switch service not called"
+
+        elif test.tree_name == "SetLine":
+            # 参数设置测试只需要运行一定时间
+            if test_duration < 2.0:
+                return False, f"Parameter setting test too short: {test_duration:.1f}s"
+
+        return True, f"All success criteria met after {test_duration:.1f}s"
 
     def _evaluate_test_failure(self) -> Tuple[bool, str]:
-        """评估测试失败条件 - 主要基于行为树执行结果"""
+        """评估测试失败条件"""
         if not self.current_test:
             return False, "No current test"
 
-        test = self.current_test
         current_time = time.time()
         test_duration = current_time - self.test_start_time
-
-        # 首先检查行为树执行结果
-        if self.latest_tree_result:
-            tree_result = self.latest_tree_result
-            result_tree_name = tree_result.get('tree_name', '')
-            result_status = tree_result.get('status', -1)
-
-            # 检查是否是当前测试的行为树结果
-            expected_tree_name = test.tree_name
-            if expected_tree_name and result_tree_name:
-                tree_match = (result_tree_name == expected_tree_name or
-                              result_tree_name.startswith(expected_tree_name + "-") or
-                              expected_tree_name.startswith(result_tree_name + "-"))
-
-                if tree_match:
-                    if result_status == 1:  # FAILURE
-                        return True, f"Tree '{result_tree_name}' failed: {tree_result.get('error_message', 'Unknown error')}"
-                    elif result_status == 2:  # TIMEOUT
-                        return True, f"Tree '{result_tree_name}' timed out"
-                    elif result_status == 3:  # HALTED (unexpected)
-                        return True, f"Tree '{result_tree_name}' was unexpectedly halted"
 
         # 检查服务调用失败
         failed_services = []
@@ -863,10 +718,6 @@ class BehaviorNodeTester(Node):
 
         if failed_services:
             return True, f"Service calls failed: {failed_services}"
-
-        # 对于不需要行为树的测试，检查是否没有任何活动
-        if not test.tree_name and test_duration > 10.0 and len(self.offboard_commands) == 0:
-            return True, "No offboard commands received after 10 seconds"
 
         return False, "No failure conditions detected"
 
@@ -977,25 +828,15 @@ class BehaviorNodeTester(Node):
         self.last_commands.clear()
         self.vehicle_sim_state.reset()
 
-        # 重置行为树结果状态
-        self.latest_tree_result = None
-        # 保留历史记录用于调试，但标记测试边界
-        if hasattr(self, 'tree_results_history'):
-            self.tree_results_history.append({
-                "test_boundary": True,
-                "timestamp": time.time(),
-                "message": f"=== Test Reset: {getattr(self.current_test, 'name', 'Unknown')} ==="
-            })
-
     # =================== 具体测试用例 ===================
 
     def create_test_cases(self) -> List[TestCase]:
-        """创建所有测试用例 - 基于行为树执行结果的新标准"""
+        """创建所有测试用例"""
         return [
             TestCase(
                 name="SetHome",
                 description="Test setting home point",
-                tree_name="",  # 不需要行为树
+                tree_name="",
                 timeout=10.0,
                 success_criteria={'min_duration': 1.0, 'required_offboard_count': 0}
             ),
@@ -1004,33 +845,32 @@ class BehaviorNodeTester(Node):
                 description="Test parameter configuration using SetLine behavior tree",
                 tree_name="SetLine",
                 timeout=15.0,
-                required_services=[],  # 不强制要求服务调用，主要看行为树结果
-                success_criteria={'min_duration': 2.0}
+                success_criteria={'min_duration': 2.0, 'required_offboard_count': 0}
             ),
             TestCase(
                 name="UnlockVehicle",
                 description="Test vehicle unlock using LockCtrl behavior tree",
                 tree_name="LockCtrl",
                 timeout=15.0,
-                required_services=["lock_unlock"],  # 仍然需要锁定控制服务
-                success_criteria={'min_duration': 3.0}
+                required_services=["lock_unlock"],
+                success_criteria={'min_duration': 3.0, 'required_offboard_count': 5}
             ),
             TestCase(
                 name="TakeOff",
                 description="Test takeoff using TakeOff behavior tree",
                 tree_name="TakeOff",
                 timeout=25.0,
-                required_mode_changes=[FlightMode.TAKEOFF.value],  # 仍然检查模式变化
+                required_mode_changes=[FlightMode.TAKEOFF.value],
                 required_services=["lock_unlock", "set_flymode"],
-                success_criteria={'min_duration': 5.0}
+                success_criteria={'min_duration': 5.0, 'required_offboard_count': 10}
             ),
             TestCase(
                 name="GotoDestination",
-                description="Test goto destination using GoToDst behavior tree",
-                tree_name="GoToDst",
+                description="Test goto destination using GotoDst behavior tree",
+                tree_name="GotoDst",
                 timeout=30.0,
                 required_services=["lock_unlock"],
-                success_criteria={'min_duration': 8.0}
+                success_criteria={'min_duration': 8.0, 'required_offboard_count': 15}
             ),
             TestCase(
                 name="AutoTrace",
@@ -1038,7 +878,7 @@ class BehaviorNodeTester(Node):
                 tree_name="AutoTrace",
                 timeout=20.0,
                 required_services=["lock_unlock"],
-                success_criteria={'min_duration': 6.0}
+                success_criteria={'min_duration': 6.0, 'required_offboard_count': 8}
             ),
             TestCase(
                 name="Land",
@@ -1046,7 +886,7 @@ class BehaviorNodeTester(Node):
                 tree_name="Land",
                 timeout=20.0,
                 required_mode_changes=[FlightMode.LAND.value],
-                success_criteria={'min_duration': 4.0}
+                success_criteria={'min_duration': 4.0, 'required_offboard_count': 8}
             ),
             TestCase(
                 name="FormationFlight",
@@ -1054,7 +894,7 @@ class BehaviorNodeTester(Node):
                 tree_name="FormFly",
                 timeout=25.0,
                 required_services=["lock_unlock", "form_switch"],
-                success_criteria={'min_duration': 8.0}
+                success_criteria={'min_duration': 8.0, 'required_offboard_count': 12}
             )
         ]
 
@@ -1155,7 +995,7 @@ class BehaviorNodeTester(Node):
             "arvDis": 3.0,
             "vehiType": "多旋翼"
         }
-        self.send_mission_json("GoToDst", 3, "GoToDst", params)
+        self.send_mission_json("GotoDst", 3, "GotoDst", params)
 
     def _test_auto_trace(self) -> None:
         """测试自动跟踪"""
@@ -1174,7 +1014,7 @@ class BehaviorNodeTester(Node):
             flight_mode=FlightMode.LAND,
             position={'x': 0.0, 'y': 0.0, 'z': -25.0, 'yaw': 0.0}
         )
-        params = {"vehiType": "多旋翼","alt":10}
+        params = {"vehiType": "多旋翼"}
         self.send_mission_json("Land", 5, "Land", params)
 
     def _test_formation_flight(self) -> None:
@@ -1198,7 +1038,7 @@ class BehaviorNodeTester(Node):
     def run_all_tests(self) -> None:
         """运行所有测试"""
         self.get_logger().info("=" * 80)
-        self.get_logger().info("STARTING UNIFIED BEHAVIOR NODE TEST SUITE")
+        self.get_logger().info("STARTING BEHAVIOR NODE TEST SUITE")
         self.get_logger().info("=" * 80)
 
         test_cases = self.create_test_cases()
@@ -1216,7 +1056,7 @@ class BehaviorNodeTester(Node):
     def print_test_summary(self) -> None:
         """打印测试总结"""
         self.get_logger().info("\n" + "=" * 80)
-        self.get_logger().info("UNIFIED BEHAVIOR NODE TEST SUMMARY")
+        self.get_logger().info("BEHAVIOR NODE TEST SUMMARY")
         self.get_logger().info("=" * 80)
 
         total_tests = len(self.test_results)
@@ -1261,58 +1101,19 @@ class BehaviorNodeTester(Node):
         # 打印服务调用统计
         self.get_logger().info("\nService Call Statistics:")
         for service, count in self.service_call_count.items():
-            avg_response_time = 0.0
-            if service in self.service_response_times and self.service_response_times[service]:
-                avg_response_time = sum(self.service_response_times[service]) / len(
-                    self.service_response_times[service])
-            self.get_logger().info(f"  {service}: {count} calls (avg: {avg_response_time * 1000:.1f}ms)")
-
-        # 检查是否有慢响应服务
-        slow_services = []
-        for service, times in self.service_response_times.items():
-            if times and max(times) > 0.1:  # 超过100ms
-                slow_services.append(f"{service}(max: {max(times) * 1000:.1f}ms)")
-
-        if slow_services:
-            self.get_logger().warn(f"Services with slow response: {', '.join(slow_services)}")
-
-        # 打印行为树执行结果统计
-        if hasattr(self, 'tree_results_history') and self.tree_results_history:
-            self.get_logger().info("\nBehavior Tree Execution Results:")
-            tree_results = [r for r in self.tree_results_history if not r.get('test_boundary', False)]
-
-            if tree_results:
-                success_trees = sum(1 for r in tree_results if r.get('status') == 0)
-                failed_trees = sum(1 for r in tree_results if r.get('status') == 1)
-                total_tree_duration = sum(r.get('duration', 0) for r in tree_results)
-
-                self.get_logger().info(f"  Total trees executed: {len(tree_results)}")
-                self.get_logger().info(f"  Successful: {success_trees}")
-                self.get_logger().info(f"  Failed: {failed_trees}")
-                self.get_logger().info(f"  Total execution time: {total_tree_duration:.2f}s")
-
-                # 显示最近几个树的执行结果
-                recent_results = tree_results[-5:] if len(tree_results) > 5 else tree_results
-                self.get_logger().info("  Recent tree results:")
-                for result in recent_results:
-                    tree_name = result.get('tree_name', 'unknown')
-                    status_str = result.get('status_string', 'unknown')
-                    duration = result.get('duration', 0)
-                    self.get_logger().info(f"    {tree_name}: {status_str} ({duration:.2f}s)")
-            else:
-                self.get_logger().info("  No behavior tree execution results recorded")
+            self.get_logger().info(f"  {service}: {count} calls")
 
         self.get_logger().info("=" * 80)
 
     def shutdown(self) -> None:
         """关闭测试器"""
         self.is_running = False
-        self.get_logger().info("Unified Behavior Node Tester shutting down...")
+        self.get_logger().info("Behavior Node Tester shutting down...")
 
 
 def main() -> None:
     """主函数"""
-    parser = argparse.ArgumentParser(description='Unified Behavior Node Tester (Python 3.8+ Compatible)')
+    parser = argparse.ArgumentParser(description='Behavior Node Tester (Python 3.8+ Compatible)')
     parser.add_argument('--test', choices=[
         'all', 'set_home', 'parameter_config', 'unlock_vehicle', 'takeoff',
         'goto_destination', 'auto_trace', 'land', 'formation_flight'

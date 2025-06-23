@@ -9,6 +9,7 @@
 
 BT::NodeStatus LockControl::onStart() {
   txtLog().info(THISMODULE "Lock control action started");
+  start_time_ = std::chrono::steady_clock::now();
   int target_state{0};
   if (!getInput("state", target_state)) {
     txtLog().error(THISMODULE "Failed to get input state");
@@ -26,7 +27,12 @@ BT::NodeStatus LockControl::onStart() {
 
 BT::NodeStatus LockControl::onRunning() {
   txtLog().info(THISMODULE "Lock control action running");
-  if (future_.valid() && future_.wait_for(std::chrono::milliseconds(50)) == std::future_status::ready) {
+  auto elapsed = std::chrono::steady_clock::now() - start_time_;
+  if (elapsed > timeout_) {
+    txtLog().error(THISMODULE "Timeout waiting for service response");
+    return BT::NodeStatus::FAILURE;
+  }
+  if (future_.valid() && future_.wait_for(std::chrono::milliseconds(5)) == std::future_status::ready) {
     auto response = future_.get();
     // 目前用response->success来判断是否成功，原版使用simpVehi的lock来判断是否成功
     if (response->success) {
