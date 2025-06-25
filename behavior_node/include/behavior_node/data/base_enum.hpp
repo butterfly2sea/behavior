@@ -71,20 +71,6 @@ enum class FlightMode {
   Stable       //增稳
 };
 
-enum class JoyControl {
-  MinMan = -1000, ///<! 手动控制消息的最小值>
-  MaxMan = 1000,  ///<! 手动控制消息的最大值>
-  MinJoy = 1000,  ///<! 摇杆消息的最小值>
-  MaxJoy = 2000,  ///<! 摇杆消息的最大值>
-  MidJoy = 1500,  ///<! 摇杆消息的中值>
-  PitchCh = 1,    ///<! 俯仰通道索引>
-  RollCh = 0,     ///<! 横滚通道索引>
-  ThroCh = 2,     ///<! 油门通道索引>
-  YawCh = 3,      ///<! 偏航通道索引>
-  InvalTs = 0,    ///<! 无限时间值>
-  LostCtrlLen = 2000///<! 失去摇杆数据时长判定 毫秒>
-};
-
 enum LockState {
   LOCK = 0,    // 锁定
   UNLOCK = 1   // 解锁

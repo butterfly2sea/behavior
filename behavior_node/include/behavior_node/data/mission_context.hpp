@@ -21,6 +21,7 @@ class MissionContext {
   std::atomic<float> arrival_distance_{-1.0f};
   std::atomic<float> speed_{-1.0f};
   std::atomic<float> anti_dis_{-1.0f};
+  std::atomic<int> trace_attack_type_{0}; // 跟踪打击类型 0：跟踪，1：打击
   std::atomic<SetContentType> set_type_{SetContentType::TWO_SWITCH};
 
   // 复杂数据类型使用轻量级mutex保护
@@ -35,6 +36,7 @@ class MissionContext {
   geometry_msgs::msg::Point home_point_;
   std::set<uint8_t> excluded_ids_;
   custom_msgs::msg::TaskStage task_stage_;
+  custom_msgs::msg::ObjectLocation attack_obj_loc_;
   behavior_core::SystemState system_state_{behavior_core::SystemState::INITIALIZING};
 
  public:
@@ -100,6 +102,15 @@ class MissionContext {
     return anti_dis_.load(std::memory_order_relaxed);
   }
 
+  void setTraceAttackType(int type) {
+    trace_attack_type_.store(type, std::memory_order_relaxed);
+    txtLog().info(THISMODULE "Set trace attack type: %d", type);
+  }
+
+  int getTraceAttackType() const {
+    return trace_attack_type_.load(std::memory_order_relaxed);
+  }
+
   void setSetType(SetContentType type) {
     set_type_.store(type, std::memory_order_relaxed);
   }
@@ -139,9 +150,9 @@ class MissionContext {
 
   nlohmann::json getParameter(const std::string &key) const {
     std::lock_guard<std::mutex> lock(data_mutex_);
-    if (parameters_.contains(key)){
+    if (parameters_.contains(key)) {
       return parameters_.at(key);
-    } else{
+    } else {
       txtLog().error(THISMODULE "Parameter not found: %s", key.c_str());
       return {};
     }
@@ -166,9 +177,9 @@ class MissionContext {
 
   nlohmann::json getTrigger(const std::string &name) const {
     std::lock_guard<std::mutex> lock(data_mutex_);
-    if (triggers_.contains(name)){
+    if (triggers_.contains(name)) {
       return triggers_.at(name);
-    } else{
+    } else {
       txtLog().error(THISMODULE "Trigger not found: %s", name.c_str());
       return {};
     }
@@ -230,6 +241,15 @@ class MissionContext {
     txtLog().debug(THISMODULE "Set excluded IDs, count: %zu", ids.size());
   }
 
+  void setExcludedIds(const std::vector<uint8_t> &ids) {
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    excluded_ids_.clear();
+    for (auto id : ids) {
+      excluded_ids_.insert(id);
+    }
+    txtLog().debug(THISMODULE "Set excluded IDs, count: %zu", ids.size());
+  }
+
   void addExcludedId(uint8_t id) {
     std::lock_guard<std::mutex> lock(data_mutex_);
     excluded_ids_.insert(id);
@@ -256,6 +276,17 @@ class MissionContext {
   custom_msgs::msg::TaskStage getTaskStage() const {
     std::lock_guard<std::mutex> lock(data_mutex_);
     return task_stage_;
+  }
+
+  // 攻击目标位置管理
+  void setAttackObjLoc(const custom_msgs::msg::ObjectLocation &loc) {
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    attack_obj_loc_ = loc;
+    txtLog().info(THISMODULE "Set attack object location");
+  }
+  custom_msgs::msg::ObjectLocation getAttackObjLoc() const {
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    return attack_obj_loc_;
   }
 
   // 系统状态管理

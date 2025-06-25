@@ -24,6 +24,7 @@
 #include <custom_msgs/msg/status_task.hpp>
 #include <custom_msgs/msg/simple_vehicle.hpp>
 #include <custom_msgs/msg/object_computation.hpp>
+#include <custom_msgs/msg/object_attack_designate.hpp>
 #include <custom_msgs/msg/command_request.hpp>
 #include <custom_msgs/msg/command_response.hpp>
 #include <custom_msgs/msg/multispectral_cam_ctrl.hpp>
@@ -175,9 +176,9 @@ class ROSCommunicationManager {
           node_->create_publisher<geometry_msgs::msg::Point>(
               topics::SET_COORD, qos::control_commands());
       // 编队偏移发布
-      publishers_[topics::INFO_GROUP_OFFSET] =
+      publishers_[topics::SET_GROUP_OFFSET] =
           node_->create_publisher<geometry_msgs::msg::Polygon>(
-              topics::INFO_GROUP_OFFSET, qos::status_info());
+              topics::SET_GROUP_OFFSET, qos::status_info());
       // 外部状态发布
       publishers_[topics::OUTER_STATUS_TASK] =
           node_->create_publisher<custom_msgs::msg::StatusTask>(
@@ -219,13 +220,9 @@ class ROSCommunicationManager {
           node_->create_publisher<std_msgs::msg::Float32>(
               topics::SET_SPEED, qos::mission_commands());
       // 编队成员发布
-      publishers_[topics::INFO_GROUP_IDS] =
+      publishers_[topics::SET_GROUP_IDS] =
           node_->create_publisher<std_msgs::msg::UInt8MultiArray>(
-              topics::INFO_GROUP_IDS, qos::status_info());
-      // 航路点发布
-      publishers_[topics::INFO_WAYPOINT] =
-          node_->create_publisher<custom_msgs::msg::DisTarget>(
-              topics::INFO_WAYPOINT, qos::status_info());
+              topics::SET_GROUP_IDS, qos::status_info());
 
       txtLog().info(THISMODULE "All publishers created successfully");
 
@@ -238,10 +235,43 @@ class ROSCommunicationManager {
     using namespace ros_interface;
 
     try {
+      // 任务控制订阅
+      subscriptions_.push_back(
+          node_->create_subscription<std_msgs::msg::String>(
+              topics::STAGE_JSON,
+              qos::mission_commands(),
+              [this](std_msgs::msg::String::SharedPtr msg) {
+                handleMissionJSON(msg);
+              }
+          )
+      );
+
+      // 命令订阅
+      subscriptions_.push_back(
+          node_->create_subscription<custom_msgs::msg::CommandRequest>(
+              topics::COMMAND,
+              qos::control_commands(),
+              [this](custom_msgs::msg::CommandRequest::SharedPtr msg) {
+                handleCommand(msg);
+              }
+          )
+      );
+
+      // 目标跟踪打击订阅
+      subscriptions_.push_back(
+          node_->create_subscription<custom_msgs::msg::ObjectAttackDesignate>(
+              topics::ATTACK_DESIGNATE,
+              qos::sensor_data(),
+              [this](custom_msgs::msg::ObjectAttackDesignate::SharedPtr msg) {
+                handleAttackDesignate(msg);
+              }
+          )
+      );
+
       // 飞机状态订阅
       subscriptions_.push_back(
           node_->create_subscription<custom_msgs::msg::SimpleVehicle>(
-              topics::INFO_VEHICLE_STATE,
+              topics::VEHICLE_STATE,
               qos::mission_commands(),
               [this](custom_msgs::msg::SimpleVehicle::SharedPtr msg) {
                 if (data_cache_) {
@@ -251,37 +281,26 @@ class ROSCommunicationManager {
           )
       );
 
+      // 航路点订阅
+      subscriptions_.push_back(
+          node_->create_subscription<geometry_msgs::msg::Point>(
+              topics::WAYPOINT,
+              qos::mission_commands(),
+              [this](geometry_msgs::msg::Point::SharedPtr msg) {
+                handleWaypoint(msg);
+              }
+          )
+      );
+
       // 目标检测订阅
       subscriptions_.push_back(
           node_->create_subscription<custom_msgs::msg::ObjectComputation>(
-              topics::INFO_OBJECT_DETECTION,
+              topics::OBJECT_DETECTION,
               qos::sensor_data(),
               [this](custom_msgs::msg::ObjectComputation::SharedPtr msg) {
                 if (data_cache_) {
                   data_cache_->updateDetectedObjects(msg);
                 }
-              }
-          )
-      );
-
-      // 任务控制订阅
-      subscriptions_.push_back(
-          node_->create_subscription<std_msgs::msg::String>(
-              topics::OUTER_STAGE_JSON,
-              qos::mission_commands(),
-              [this](std_msgs::msg::String::SharedPtr msg) {
-                handleMissionJSON(msg);
-              }
-          )
-      );
-
-      // 任务阶段订阅
-      subscriptions_.push_back(
-          node_->create_subscription<custom_msgs::msg::TaskStage>(
-              topics::OUTER_TASK_STAGE,
-              qos::mission_commands(),
-              [this](custom_msgs::msg::TaskStage::SharedPtr msg) {
-                handleTaskStage(msg);
               }
           )
       );
@@ -297,13 +316,13 @@ class ROSCommunicationManager {
           )
       );
 
-      // 命令订阅
+      // 任务阶段订阅
       subscriptions_.push_back(
-          node_->create_subscription<custom_msgs::msg::CommandRequest>(
-              topics::OUTER_COMMAND,
-              qos::control_commands(),
-              [this](custom_msgs::msg::CommandRequest::SharedPtr msg) {
-                handleCommand(msg);
+          node_->create_subscription<custom_msgs::msg::TaskStage>(
+              topics::OUTER_TASK_STAGE,
+              qos::mission_commands(),
+              [this](custom_msgs::msg::TaskStage::SharedPtr msg) {
+                handleTaskStage(msg);
               }
           )
       );
@@ -319,6 +338,10 @@ class ROSCommunicationManager {
     using namespace ros_interface;
 
     try {
+      service_clients_[services::INFO_RTSP_URL] =
+          node_->create_client<custom_msgs::srv::CommandString>(
+              services::INFO_RTSP_URL);
+
       service_clients_[services::SET_FLIGHT_MODE] =
           node_->create_client<custom_msgs::srv::CommandLong>(
               services::SET_FLIGHT_MODE);
@@ -327,13 +350,13 @@ class ROSCommunicationManager {
           node_->create_client<custom_msgs::srv::CommandBool>(
               services::LOCK_UNLOCK);
 
+      service_clients_[services::GUIDANCE_SWITCH] =
+          node_->create_client<custom_msgs::srv::CommandBool>(
+              services::GUIDANCE_SWITCH);
+
       service_clients_[services::FORMATION_SWITCH] =
           node_->create_client<custom_msgs::srv::CommandInt>(
               services::FORMATION_SWITCH);
-
-      service_clients_[services::INFO_RTSP_URL] =
-          node_->create_client<custom_msgs::srv::CommandString>(
-              services::INFO_RTSP_URL);
 
       txtLog().info(THISMODULE "All service clients created successfully");
 
@@ -379,6 +402,27 @@ class ROSCommunicationManager {
     } catch (const std::exception &e) {
       txtLog().error(THISMODULE "Error handling mission JSON: %s", e.what());
     }
+  }
+
+  void handleAttackDesignate(custom_msgs::msg::ObjectAttackDesignate::SharedPtr msg) {
+    if (!data_cache_ || !mission_context_) return;
+    auto vehicle_id = data_cache_->getVehicleId();
+    bool is_attack = false;
+    for (auto id : msg.get()->ids) {
+      if (id == vehicle_id) {
+        is_attack = true;
+        break;
+      }
+    }
+    //它机跟踪打击任务(除去终止任务)时 重新规划分组及分组偏移
+    if (!is_attack) {
+      mission_context_->setExcludedIds(msg.get()->ids);
+      return;
+    }
+    mission_context_->setAttackObjLoc(msg.get()->objs);
+    mission_context_->setTraceAttackType(msg.get()->type);
+
+
   }
 
   void handleTaskStage(custom_msgs::msg::TaskStage::SharedPtr msg) {
@@ -437,7 +481,7 @@ class ROSCommunicationManager {
       return;
     }
 
-    processCommand(msg);
+//    processCommand(msg);
   }
 
   bool validateStage(const nlohmann::json &stage) {

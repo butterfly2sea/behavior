@@ -27,7 +27,7 @@ BT::NodeStatus OffBoardControl::tick() {
 //  } else {
 //    ctrl.z = FlightmodeCtrl::takeoffZ();
   }
-  //如为垂起-固定翼则改变控制mask为行路点+空速
+  //如为垂起-固定翼则改变控制mask为航路点+空速
   if ((VehicleType::FixWing == vehicle_state->type) || (VehicleType::VtolFix == vehicle_state->type)) {
     ctrl.airspd = 0;//空速为0时飞控会使用最小空速
     ctrl.ordmask = OffBoardMask::LocCtrl + OffBoardMask::AirSpdCtrl;

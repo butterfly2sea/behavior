@@ -124,11 +124,11 @@ BT::NodeStatus SetLineParameters::tick() {
   if (IDS & set_type) {
     std_msgs::msg::UInt8MultiArray ids_;
     ids_.data = context()->getGroupMembers();
-    ros()->publish<std_msgs::msg::UInt8MultiArray>(ros_interface::topics::INFO_GROUP_IDS, ids_);
+    ros()->publish<std_msgs::msg::UInt8MultiArray>(ros_interface::topics::SET_GROUP_IDS, ids_);
   }
 
   if (OFFSETS & set_type) {
-    ros()->publish<geometry_msgs::msg::Polygon>(ros_interface::topics::INFO_GROUP_OFFSET, context()->getTaskStage().formoffset);
+    ros()->publish<geometry_msgs::msg::Polygon>(ros_interface::topics::SET_GROUP_OFFSET, context()->getTaskStage().formoffset);
   }
 
   return BT::NodeStatus::SUCCESS;

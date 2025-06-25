@@ -13,13 +13,19 @@
 #include "behavior_node/base_nodes.hpp"
 
 #include "behavior_node/action/flight_mode_control.hpp"
+#include "behavior_node/action/joy_control.hpp"
 #include "behavior_node/action/lock_control.hpp"
 #include "behavior_node/action/navigation_control.hpp"
 #include "behavior_node/action/off_board_control.hpp"
 #include "behavior_node/action/set_destination_point.hpp"
 #include "behavior_node/action/set_line_parameters.hpp"
+#include "behavior_node/action/trace_attack_control.hpp"
 #include "behavior_node/condition/check_arrive_destination.hpp"
 #include "behavior_node/condition/check_quit_search.hpp"
+
+// 添加状态消息头文件
+#include <custom_msgs/msg/behavior_tree_status.hpp>
+#include <custom_msgs/msg/behavior_node_status.hpp>
 
 // 前向声明
 class ROSCommunicationManager;
@@ -50,11 +56,15 @@ class BehaviorExecutor {
   std::chrono::milliseconds tick_interval_{50}; // 20Hz
   std::chrono::milliseconds message_check_interval_{10}; // 100Hz
 
-
   // 依赖项
   std::shared_ptr<ROSCommunicationManager> ros_comm_;
   std::shared_ptr<Cache> data_cache_;
   std::shared_ptr<MissionContext> mission_context_;
+
+  // 状态监控
+  rclcpp::Publisher<custom_msgs::msg::BehaviorTreeStatus>::SharedPtr status_publisher_;
+  std::map<std::string, BT::NodeStatus> last_node_status_;
+  BT::NodeStatus last_tree_status_{BT::NodeStatus::IDLE};
 
  public:
   BehaviorExecutor(
@@ -99,6 +109,13 @@ class BehaviorExecutor {
           return std::make_unique<FlightModeControl>(name, config, deps);
         });
 
+    // joystick控制节点
+    factory_.registerBuilder<JoyControl>(
+        "JoyControl",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<JoyControl>(name, config, deps);
+        });
+
     // 锁定控制节点
     factory_.registerBuilder<LockControl>(
         "LockControl",
@@ -134,6 +151,13 @@ class BehaviorExecutor {
           return std::make_unique<SetLineParameters>(name, config, deps);
         });
 
+    // 跟踪攻击控制节点
+    factory_.registerBuilder<TraceAttackControl>(
+        "TraceAttackControl",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<TraceAttackControl>(name, config, deps);
+        });
+
     // 检查是否抵达目标点节点
     factory_.registerBuilder<CheckArriveDestination>(
         "CheckArriveDestination",
@@ -161,6 +185,10 @@ class BehaviorExecutor {
       txtLog().error(THISMODULE "Node not set");
       return;
     }
+
+    // 创建状态发布器
+    status_publisher_ = node_->create_publisher<custom_msgs::msg::BehaviorTreeStatus>(
+        "behavior_tree/status", 10);
 
     // 创建定时器
     tick_timer_ = node_->create_wall_timer(
@@ -225,11 +253,15 @@ class BehaviorExecutor {
       current_tree_name_ = tree_name;
       is_paused_.store(false);
       tick_count_.store(0);
+      last_node_status_.clear();
 
       // 更新任务上下文
       if (mission_context_) {
         mission_context_->setCurrentTreeName(tree_name);
       }
+
+      // 发布初始状态
+      publishTreeStatus(BT::NodeStatus::RUNNING);
 
       // 启动定时器开始执行
       if (tick_timer_) {
@@ -261,6 +293,7 @@ class BehaviorExecutor {
     is_running_.store(false);
     is_paused_.store(false);
     current_tree_name_.clear();
+    last_node_status_.clear();
 
     if (mission_context_) {
       mission_context_->setCurrentTreeName("");
@@ -328,6 +361,9 @@ class BehaviorExecutor {
       tick_count_.fetch_add(1);
       last_tick_time_ = start_time;
 
+      // 发布状态更新
+      publishTreeStatus(status);
+
       handleTreeStatus(status);
 
       auto execution_time = std::chrono::steady_clock::now() - start_time;
@@ -340,6 +376,7 @@ class BehaviorExecutor {
 
     } catch (const std::exception &e) {
       txtLog().error(THISMODULE "Exception in tree tick: %s", e.what());
+      publishTreeStatus(BT::NodeStatus::FAILURE);
       stopTree();
     }
   }
@@ -394,9 +431,67 @@ class BehaviorExecutor {
   }
 
   void onTreeCompleted(bool success) {
+    publishTreeStatus(success ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE);
     stopTree();
 
     txtLog().info(THISMODULE "Tree execution completed, status: %s",
                   success ? "SUCCESS" : "FAILURE");
+  }
+
+  void publishTreeStatus(BT::NodeStatus tree_status) {
+    if (!status_publisher_ || !current_tree_) {
+      return;
+    }
+
+    custom_msgs::msg::BehaviorTreeStatus status_msg;
+    status_msg.tree_name = current_tree_name_;
+    status_msg.tree_status = nodeStatusToString(tree_status);
+    status_msg.timestamp = node_->now().nanoseconds();
+
+    // 遍历所有节点获取状态
+    current_tree_->applyVisitor([&](BT::TreeNode *node) {
+      if (!node) return;
+
+      custom_msgs::msg::BehaviorNodeStatus node_status;
+      node_status.name = node->name();
+      node_status.uid = std::to_string(node->UID());
+
+      // 获取节点类型
+      if (dynamic_cast<BT::ActionNodeBase *>(node)) {
+        node_status.type = "Action";
+      } else if (dynamic_cast<BT::ConditionNode *>(node)) {
+        node_status.type = "Condition";
+      } else if (dynamic_cast<BT::ControlNode *>(node)) {
+        node_status.type = "Control";
+      } else if (dynamic_cast<BT::DecoratorNode *>(node)) {
+        node_status.type = "Decorator";
+      } else {
+        node_status.type = "Unknown";
+      }
+
+      // 获取节点状态
+      node_status.status = nodeStatusToString(node->status());
+      node_status.execution_time = 0.0; // 可以后续添加执行时间统计
+
+      status_msg.nodes.push_back(node_status);
+    });
+
+    last_tree_status_ = tree_status;
+
+    try {
+      status_publisher_->publish(status_msg);
+    } catch (const std::exception &e) {
+      txtLog().error(THISMODULE "Failed to publish tree status: %s", e.what());
+    }
+  }
+
+  static std::string nodeStatusToString(BT::NodeStatus status) {
+    switch (status) {
+      case BT::NodeStatus::IDLE: return "IDLE";
+      case BT::NodeStatus::RUNNING: return "RUNNING";
+      case BT::NodeStatus::SUCCESS: return "SUCCESS";
+      case BT::NodeStatus::FAILURE: return "FAILURE";
+      default: return "UNKNOWN";
+    }
   }
 };

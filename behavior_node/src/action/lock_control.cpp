@@ -40,7 +40,7 @@ BT::NodeStatus LockControl::onRunning() {
       return BT::NodeStatus::SUCCESS;
     } else {
       txtLog().error(THISMODULE "Lock command response failed");
-      setOutput("result", false);
+      return BT::NodeStatus::FAILURE;
     }
   }
   return BT::NodeStatus::RUNNING;
