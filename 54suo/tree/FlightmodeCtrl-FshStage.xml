@@ -1,0 +1,165 @@
+<root BTCPP_format="4"> 
+    <BehaviorTree ID="EnterOffboardTree">
+        <SequenceWithMemory>
+            <SubTree ID="UnLockTree" />
+            <GetLocation target="{ctrl_info}" zoffset="0"/>
+            <ReactiveFallback>
+                <CheckFlightmode mode="9" />
+                <KeepRunningUntilFailure>
+                    <Delay delay_msec="30">
+                        <Sequence>
+                            <OffboardCtrl ctrl="{ctrl_info}"/>
+                            <FlightmodeCtrl mode="9" />
+                        </Sequence>
+                    </Delay>
+                </KeepRunningUntilFailure>
+            </ReactiveFallback>
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+    <BehaviorTree ID="LandTree">
+        <SequenceWithMemory>
+        
+        <ForceSuccess>
+            <Repeat num_cycles="2" >
+            <Delay delay_msec="500">
+                <FlightmodeCtrl mode="5" />
+            </Delay>
+            </Repeat>
+        </ForceSuccess>
+        <ForceSuccess>
+            <NavwayCtrl frame="1" command="3"/>
+        </ForceSuccess>
+        <ForceSuccess>
+            <TraceAttackCtrl frame="1" command="3" />
+        </ForceSuccess>
+        <SubTree ID="KeepRunTree" />
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+    <BehaviorTree ID="RTLTree">
+       <SequenceWithMemory>
+       <SetTriggers delay="{time_info}" /> 
+       <Repeat num_cycles="2" >    
+           <Delay delay_msec="500">     
+               <FlightmodeCtrl mode="6" />  
+           </Delay>          
+       </Repeat>
+       <Delay delay_msec="{time_info}">
+           <FlightmodeCtrl mode="8" />
+       </Delay>
+        <ForceSuccess>
+	    <Delay delay_msec="500">
+		<FlightmodeCtrl mode="8" />
+	    </Delay>
+        </ForceSuccess>
+         <ForceSuccess>
+            <NavwayCtrl frame="1" command="3"/>
+        </ForceSuccess>
+        <ForceSuccess>
+            <TraceAttackCtrl frame="1" command="3" />
+        </ForceSuccess>
+        <SubTree ID="KeepRunTree" />
+        </SequenceWithMemory> 
+    </BehaviorTree>
+
+    <BehaviorTree ID="LoitTree">
+        <SequenceWithMemory>
+        <ForceSuccess>
+            <NavwayCtrl frame="1" command="3"/>
+        </ForceSuccess>
+        <ForceSuccess>
+            <TraceAttackCtrl frame="1" command="3" />
+        </ForceSuccess>
+       
+         <SubTree ID="EnterOffboardTree" />
+            <GetLocation target="{ctrl_info}" zoffset="0"/>
+            <KeepRunningUntilFailure>
+                <Delay delay_msec="30">
+                    <OffboardCtrl ctrl="{ctrl_info}"/>
+                </Delay>
+            </KeepRunningUntilFailure>
+        </SequenceWithMemory>      
+    </BehaviorTree>
+
+    <BehaviorTree ID="TakeoffTreeViaOffboard">
+        <Sequence>
+            <SubTree ID="EnterOffboardTree" />
+            <GetLocation target="{ctrl_info}" fixed="-1" />
+            <KeepRunningUntilFailure>
+                <Delay delay_msec="30">
+                    <OffboardCtrl ctrl="{ctrl_info}"/>
+                </Delay>
+            </KeepRunningUntilFailure>
+
+        </Sequence>       
+    </BehaviorTree>
+
+    <BehaviorTree ID="TakeoffTree">
+    <SequenceWithMemory>
+        <ForceSuccess>
+            <NavwayCtrl frame="1" command="3"/>
+        </ForceSuccess>
+        <ForceSuccess>
+            <TraceAttackCtrl frame="1" command="3" />
+        </ForceSuccess>
+    	 <SubTree ID="EnterOffboardTree" />
+	<GetLocation target="{ctrl_info}" fixed="-1" />
+	<KeepRunningUntilFailure>
+		<Delay delay_msec="30">
+			<OffboardCtrl ctrl="{ctrl_info}"/>
+		</Delay>
+	</KeepRunningUntilFailure>
+    </SequenceWithMemory>  
+    </BehaviorTree>
+    
+    <BehaviorTree ID="TaskTakeoffTree-bk">
+        <Sequence>
+            <SubTree ID="EnterOffboardTree" />
+            <GetLocation target="{ctrl_info}" />
+            <KeepRunningUntilFailure>
+ 
+                <Delay delay_msec="30">
+                    <OffboardCtrl ctrl="{ctrl_info}"/>
+                </Delay>
+            </KeepRunningUntilFailure>
+
+        </Sequence>       
+    </BehaviorTree>
+
+    <BehaviorTree ID="TaskTakeoffTreeViaOffboard">
+        <Sequence>
+            <SubTree ID="EnterOffboardTree" />
+            <GetLocation target="{ctrl_info}" />
+            <Fallback>
+                <CheckArriveDst target="{ctrl_info}"/>
+                <Delay delay_msec="30">
+                    <OffboardCtrl ctrl="{ctrl_info}"/>
+                </Delay>
+            </Fallback>
+
+        </Sequence>       
+    </BehaviorTree>
+
+    <BehaviorTree ID="TaskTakeoffTree">
+    <SequenceWithMemory>
+    	<ForceSuccess>
+            <NavwayCtrl frame="1" command="3"/>
+        </ForceSuccess>
+        <ForceSuccess>
+            <TraceAttackCtrl frame="1" command="3" />
+        </ForceSuccess>
+    	<SubTree ID="EnterOffboardTree" />
+	<GetLocation target="{ctrl_info}" fixed="{takeoff_z}"/>
+	<ReactiveFallback>
+	<CheckArriveDst target="{ctrl_info}"/>
+	<KeepRunningUntilFailure>
+		<Delay delay_msec="30">
+			<OffboardCtrl ctrl="{ctrl_info}"/>
+		</Delay>
+	</KeepRunningUntilFailure>
+	</ReactiveFallback>
+    </SequenceWithMemory>    
+    </BehaviorTree>
+
+</root>

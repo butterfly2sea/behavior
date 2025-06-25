@@ -1,0 +1,96 @@
+<root BTCPP_format="4"> 
+    <BehaviorTree ID="ContinueWayTree">
+        <Sequence>
+            <SubTree ID="EnterOffboardTree" />
+            <ForceSuccess>
+                <NavwayCtrl frame="1" command="2"/>
+            </ForceSuccess>
+            <ReactiveFallback>
+            	<CheckWayViaTp />
+            	<KeepRunningUntilFailure>
+            	<Script code="msg:='test'"/>
+            	</KeepRunningUntilFailure>
+	    </ReactiveFallback>
+	   
+        </Sequence>
+    </BehaviorTree>
+    <BehaviorTree ID="ContinueTraceTree">
+        <SequenceWithMemory>
+            
+            <SubTree ID="TraceTree" />
+        </SequenceWithMemory>
+    </BehaviorTree>
+     <BehaviorTree ID="ContinueAttackTree">
+        <SequenceWithMemory>
+            
+            <SubTree ID="AttackTree" />
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+     <BehaviorTree ID="PauseWayTree">
+     
+          <SequenceWithMemory>
+            <ForceSuccess>
+                <NavwayCtrl frame="1" command="1"/>
+            </ForceSuccess>
+            
+	   <ReactiveFallback>
+            	<CheckWayViaTp />
+            	<KeepRunningUntilFailure>
+            	<Script code="msg:='test'"/>
+            	</KeepRunningUntilFailure>
+	    </ReactiveFallback>
+        </SequenceWithMemory>
+           
+     
+    </BehaviorTree>
+
+    <BehaviorTree ID="PauseTraceTree">
+        <SequenceWithMemory>
+            <ForceSuccess>
+                <TraceAttackCtrl frame="1" command="1" current="0" />
+            </ForceSuccess>
+            <SubTree ID="LoitTree" />
+            
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+    <BehaviorTree ID="PauseAttackTree">
+        <SequenceWithMemory>
+            <ForceSuccess>
+                <TraceAttackCtrl frame="1" command="1" current="1" />
+            </ForceSuccess>
+            <SubTree ID="LoitTree" />
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+    <BehaviorTree ID="StopWayTree">
+        <Sequence>
+            
+                <NavwayCtrl frame="1" command="3"/>
+                <SubTree ID="LoitTree" />
+
+        </Sequence>
+    </BehaviorTree>
+
+    <BehaviorTree ID="StopTraceTree">
+        <Sequence>
+            <ReactiveFallback>
+                <TraceAttackCtrl frame="1" command="3" current="0" />
+                <SubTree ID="LoitTree" />
+            </ReactiveFallback>
+            <SubTree ID="LoitTree" />
+        </Sequence>
+    </BehaviorTree>
+
+    <BehaviorTree ID="StopAttackTree">
+        <Sequence>
+            <ReactiveFallback>
+                <TraceAttackCtrl frame="1" command="3" current="1" />
+                <SubTree ID="LoitTree" />
+            </ReactiveFallback>
+            <SubTree ID="LoitTree" />
+        </Sequence>
+    </BehaviorTree>
+
+</root>

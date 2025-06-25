@@ -1,0 +1,61 @@
+<root BTCPP_format="4"> 
+   
+    <BehaviorTree ID="Trace-start">
+        <SequenceWithMemory>
+            <SubTree ID="TraceAttackTree" _autoremap="true" cmd_type="0" act_type="0" />
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+    <BehaviorTree ID="Trace-pause">
+        <SequenceWithMemory>
+            <ForceSuccess>
+                <TraceAttackCtrl frame="1" command="1" current="0" />
+            </ForceSuccess>
+            <SubTree ID="LoitTree" />
+            
+        </SequenceWithMemory>
+    </BehaviorTree>
+    
+    <BehaviorTree ID="Trace-continue">
+        <SequenceWithMemory>
+           <SubTree ID="TraceAttackTree" _autoremap="true" cmd_type="2" act_type="0" />
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+    <BehaviorTree ID="Trace-stop">
+        <Sequence>
+            <ReactiveFallback>
+                <TraceAttackCtrl frame="1" command="3" current="0" />
+                <SubTree ID="LoitTree" />
+            </ReactiveFallback>
+            <SubTree ID="LoitTree" />
+        </Sequence>
+    </BehaviorTree>
+
+    <BehaviorTree ID="PodGpsLock-start">
+        <SequenceWithMemory>
+            <ForceSuccess>
+                <CameraCtrl ctrltyp="123"/>
+            </ForceSuccess>
+            <ReactiveFallback>
+                <TraceStatus  ctrltyp="{typ}" param1="{p1}" param2="{p2}" param3="{p3}"/>
+                <KeepRunningUntilFailure>
+                    <ForceSuccess>
+                        <CameraCtrl ctrltyp="{typ}" param1="{p1}" param2="{p2}" param3="{p3}"/>
+                    </ForceSuccess>
+                </KeepRunningUntilFailure>
+            </ReactiveFallback>
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+    <BehaviorTree ID="PodGpsLock-stop">
+        <SequenceWithMemory>
+            <Repeat num_cycles="2" >
+            <ForceSuccess>
+                <CameraCtrl ctrltyp="123"/>
+            </ForceSuccess>
+            </Repeat>
+        </SequenceWithMemory>
+    </BehaviorTree>
+    
+</root>

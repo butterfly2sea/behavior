@@ -1,0 +1,25 @@
+<root BTCPP_format="4"> 
+    <BehaviorTree ID="RecalmTree">
+        <Sequence>
+
+            <ReactiveFallback>
+                <CheckStartTask/>
+                <SubTree ID="LoitTree" />
+            </ReactiveFallback>
+           
+
+            <NavwayCtrl frame="0" command="0"/>
+            <ReactiveFallback>
+                <CheckWayViaTp />
+                
+                <KeepRunningUntilFailure>
+                    <Sequence>
+                        <OffboardCtrl />
+                    </Sequence>
+                </KeepRunningUntilFailure>               
+            </ReactiveFallback>
+            <NavwayCtrl frame="0" command="3"/>
+        </Sequence>
+    </BehaviorTree>
+    
+</root>

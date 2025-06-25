@@ -1,0 +1,111 @@
+<root BTCPP_format="4"> 
+
+    <BehaviorTree ID="GoToCurLoc">
+    	<ReactiveFallback>
+    	    <CheckArriveDst target="{ctrl_info}"/>
+    	    <KeepRunningUntilFailure>
+    	        <Delay delay_msec="30">
+                   <OffboardCtrl ctrl="{ctrl_info}"/>
+               </Delay>
+           </KeepRunningUntilFailure>
+    	</ReactiveFallback>
+    </BehaviorTree>
+     
+    <BehaviorTree ID="GoToDstTree">
+        <SequenceWithMemory>
+            <GetLocation target="{ctrl_info}" zoffset="0"/>
+            <SubTree ID="EnterOffboardTree" />
+            <SetDstPt target="{ctrl_info}" step="0" />
+            <SubTree ID="GoToCurLoc" _autoremap="true" />
+            
+            <SetDstPt target="{ctrl_info}" step="{step_val}" />
+	    <KeepRunningUntilFailure>
+	    	<Delay delay_msec="30">
+		    <OffboardCtrl ctrl="{ctrl_info}"/>
+	       </Delay>
+	    </KeepRunningUntilFailure>
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+    <BehaviorTree ID="AutoTraceTree1">
+        <SequenceWithMemory>
+            <ForceSuccess>
+                <NavwayCtrl frame="1" command="3"/>
+            </ForceSuccess>
+            <SubTree ID="GoToDstTree" />
+            <SubTree ID="StartLineTree" />
+            
+            <Inverter>
+	    <KeepRunningUntilFailure>
+		 <Delay delay_msec="1000">
+		    <Inverter>
+			<CheckQuitSearch />
+		    </Inverter>
+		</Delay> 
+	    </KeepRunningUntilFailure> 
+	    </Inverter>
+            <SubTree ID="AttackTree" />
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+    <BehaviorTree ID="SearchPtTree">
+        <SequenceWithMemory>
+            <SetLine type="1" /> 
+            <SubTree ID="EnterOffboardTree" />
+            <SetDstPt target="{ctrl_info}" step="2"/>
+	    <KeepRunningUntilFailure>
+	    	<Delay delay_msec="30">
+		    <OffboardCtrl ctrl="{ctrl_info}"/>
+	       </Delay>
+	    </KeepRunningUntilFailure>
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+    <BehaviorTree ID="AutoTraceTree">
+        <SequenceWithMemory>
+            <ForceSuccess>
+                <NavwayCtrl frame="1" command="3"/>
+            </ForceSuccess>
+            <ForceSuccess>
+            	 <TraceAttackCtrl frame="1" command="3" />
+            </ForceSuccess>
+            <SubTree ID="GoToDstTree" />
+        
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+     <BehaviorTree ID="AutoTrace-start">
+        <SequenceWithMemory>
+            <SubTree ID="AutoTraceTree" />
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+    <BehaviorTree ID="AutoTrace-pause">
+        <SequenceWithMemory>
+            <SubTree ID="LoitTree" />
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+    <BehaviorTree ID="AutoTrace-continue">
+        <SequenceWithMemory>
+            <SubTree ID="AutoTraceTree" />
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+    <BehaviorTree ID="AutoTrace-stop">
+        <SequenceWithMemory>
+            <SubTree ID="LoitTree" />
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+    <BehaviorTree ID="GotoDst-start">
+        <SequenceWithMemory>
+            <ForceSuccess>
+                <NavwayCtrl frame="1" command="3"/>
+            </ForceSuccess>
+            <FuelUp ctrl="3"/>
+            <SubTree ID="GoToDstTree" _autoremap="true" step_val="2"/>
+        </SequenceWithMemory>
+    </BehaviorTree>
+    
+</root>

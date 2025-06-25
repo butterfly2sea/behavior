@@ -1,0 +1,46 @@
+<root BTCPP_format="4"> 
+    <BehaviorTree ID="FuelUp-start">
+        <SequenceWithMemory>
+            
+            <ForceSuccess>
+                <NavwayCtrl frame="1" command="3"/>
+            </ForceSuccess>
+    
+            <SetLine type="3" /> 
+            <SubTree ID="EnterOffboardTree" />
+            <FuelUp ctrl="0"/>
+            <SubTree ID="KeepRunTree" />
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+    <BehaviorTree ID="FuelUp-pause">
+        <SequenceWithMemory>
+            
+            <ForceSuccess>
+                <NavwayCtrl frame="1" command="3"/>
+            </ForceSuccess>
+            <FuelUp ctrl="1"/>
+            <SubTree ID="KeepRunTree" />
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+    <BehaviorTree ID="FuelUp-continue">
+        <SequenceWithMemory>
+            
+            <ForceSuccess>
+                <NavwayCtrl frame="1" command="3"/>
+            </ForceSuccess>
+            <SubTree ID="EnterOffboardTree" />
+            <FuelUp ctrl="2"/>
+            <SubTree ID="KeepRunTree" />
+        </SequenceWithMemory>
+    </BehaviorTree>
+    
+
+    <BehaviorTree ID="FuelUp-stop">
+        <SequenceWithMemory>
+            <SubTree ID="LoitTree" />
+        </SequenceWithMemory>
+    </BehaviorTree>
+    
+</root>
