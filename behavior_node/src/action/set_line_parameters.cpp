@@ -29,9 +29,9 @@ BT::NodeStatus SetLineParameters::tick() {
     txtLog().error(THISMODULE "Missing 'antiDis' input");
     return BT::NodeStatus::FAILURE;
   }
-  context()->setAntiDis(anti_dis.value());
   // 发布防撞距离
   if (ANTI_DIS & set_type) {
+    context()->setAntiDis(anti_dis.value());
     std_msgs::msg::Float32 msg;
     msg.data = anti_dis.value();
     ros()->publish<std_msgs::msg::Float32>(ros_interface::topics::SET_ANTI_COLLISION_DIS, msg); // 发布防撞距离
@@ -40,6 +40,9 @@ BT::NodeStatus SetLineParameters::tick() {
   // 发布循环次数
   if (LOOPS & set_type) {
     int loops = context()->getParameter("loops").get<int>();
+    context()->setLoopIndex(0);
+    context()->setLoopCount(loops);
+    context()->setWpId(0xFFFFFFFF);
     std_msgs::msg::Int32 msg;
     msg.data = loops;
     ros()->publish<std_msgs::msg::Int32>(ros_interface::topics::SET_LOOPS, msg); // 发布循环次数
@@ -108,8 +111,6 @@ BT::NodeStatus SetLineParameters::tick() {
     ros()->publish<geometry_msgs::msg::Polygon>(ros_interface::topics::SET_NAVLINE, way_points); // 发布航点信息
   }
 
-
-
   // 后续代码待actionmanager处再重新编写
   if (FORM & set_type) {
     ros()->publish<custom_msgs::msg::ParamShort>(ros_interface::topics::SET_FORMATION, context()->getTaskStage().form);
@@ -128,7 +129,8 @@ BT::NodeStatus SetLineParameters::tick() {
   }
 
   if (OFFSETS & set_type) {
-    ros()->publish<geometry_msgs::msg::Polygon>(ros_interface::topics::SET_GROUP_OFFSET, context()->getTaskStage().formoffset);
+    ros()->publish<geometry_msgs::msg::Polygon>(ros_interface::topics::SET_GROUP_OFFSET,
+                                                context()->getTaskStage().formoffset);
   }
 
   return BT::NodeStatus::SUCCESS;

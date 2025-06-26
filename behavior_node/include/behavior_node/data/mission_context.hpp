@@ -22,6 +22,9 @@ class MissionContext {
   std::atomic<float> speed_{-1.0f};
   std::atomic<float> anti_dis_{-1.0f};
   std::atomic<int> trace_attack_type_{0}; // 跟踪打击类型 0：跟踪，1：打击
+  std::atomic<uint> loop_count_{0}; // 循环次数
+  std::atomic<uint> loop_index_{0}; // 当前循环索引
+  std::atomic<uint32_t> wp_id_{0xFFFFFFFF}; // 航线当前航点id
   std::atomic<SetContentType> set_type_{SetContentType::TWO_SWITCH};
 
   // 复杂数据类型使用轻量级mutex保护
@@ -109,6 +112,39 @@ class MissionContext {
 
   int getTraceAttackType() const {
     return trace_attack_type_.load(std::memory_order_relaxed);
+  }
+
+  void setLoopCount(int count) {
+    loop_count_.store(count, std::memory_order_relaxed);
+    txtLog().info(THISMODULE "Set loop count: %d", count);
+  }
+
+  uint getLoopCount() const {
+    return loop_count_.load(std::memory_order_relaxed);
+  }
+
+  void setLoopIndex(int index) {
+    loop_index_.store(index, std::memory_order_relaxed);
+    txtLog().info(THISMODULE "Set loop index: %d", index);
+  }
+
+  // 自增循环索引
+  void incLoopIndex() {
+    loop_index_.fetch_add(1, std::memory_order_relaxed);
+    txtLog().debug(THISMODULE "Increment loop index: %d", getLoopIndex());
+  }
+
+  uint getLoopIndex() const {
+    return loop_index_.load(std::memory_order_relaxed);
+  }
+
+  void setWpId(uint32_t id) {
+    wp_id_.store(id, std::memory_order_relaxed);
+    txtLog().debug(THISMODULE "Set waypoint ID: %d", id);
+  }
+
+  uint32_t getWpId() const {
+    return wp_id_.load(std::memory_order_relaxed);
   }
 
   void setSetType(SetContentType type) {

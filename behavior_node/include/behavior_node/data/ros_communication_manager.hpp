@@ -281,13 +281,17 @@ class ROSCommunicationManager {
           )
       );
 
-      // 航路点订阅
+      // 航路点距离信息订阅
       subscriptions_.push_back(
-          node_->create_subscription<geometry_msgs::msg::Point>(
+          node_->create_subscription<custom_msgs::msg::DisTarget>(
               topics::WAYPOINT,
-              qos::mission_commands(),
-              [this](geometry_msgs::msg::Point::SharedPtr msg) {
-                handleWaypoint(msg);
+              qos::sensor_data(),
+              [this](custom_msgs::msg::DisTarget::SharedPtr msg) {
+                if (auto id = mission_context_->getWpId();
+                    (id == 0xFFFFFFFF || msg->id != id) && mission_context_->getArrivalDistance() > msg->dis / 1e3) {
+                  mission_context_->setWpId(msg->id);
+                  mission_context_->incLoopIndex();
+                }
               }
           )
       );
@@ -421,7 +425,6 @@ class ROSCommunicationManager {
     }
     mission_context_->setAttackObjLoc(msg.get()->objs);
     mission_context_->setTraceAttackType(msg.get()->type);
-
 
   }
 

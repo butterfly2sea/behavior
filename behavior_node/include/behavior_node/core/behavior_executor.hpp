@@ -22,6 +22,7 @@
 #include "behavior_node/action/trace_attack_control.hpp"
 #include "behavior_node/condition/check_arrive_destination.hpp"
 #include "behavior_node/condition/check_quit_search.hpp"
+#include "behavior_node/condition/check_quit_line_loop.hpp"
 
 // 添加状态消息头文件
 #include <custom_msgs/msg/behavior_tree_status.hpp>
@@ -170,6 +171,13 @@ class BehaviorExecutor {
         "CheckQuitSearch",
         [deps](const std::string &name, const BT::NodeConfiguration &config) {
           return std::make_unique<CheckQuitSearch>(name, config, deps);
+        });
+
+    // 检查是否退出航线循环节点
+    factory_.registerBuilder<CheckQuitLineLoop>(
+        "CheckQuitLineLoop",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<CheckQuitLineLoop>(name, config, deps);
         });
 
     txtLog().info(THISMODULE "Behavior tree nodes registered");
