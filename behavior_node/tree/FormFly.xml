@@ -3,7 +3,7 @@
     <BehaviorTree ID="FormFly">
         <Sequence name="FormationFlightSequence">
             <!-- 1. 确保载具已解锁 -->
-            <LockControl state="1" />
+            <LockControl state="1"/>
 
             <!-- 2. 设置编队参数 -->
             <SetLineParameters
@@ -51,14 +51,16 @@
                 </KeepRunningUntilFailure>
 
                 <!-- 编队保持控制 -->
-                <KeepRunningUntilFailure>
-                    <Delay delay_msec="1000">
-                        <NavigationControl
-                                frame="1"
-                                command="2"
-                        />
-                    </Delay>
-                </KeepRunningUntilFailure>
+                <Inverter>
+                    <KeepRunningUntilFailure>
+                        <Delay delay_msec="1000">
+                            <NavigationControl
+                                    frame="1"
+                                    command="2"
+                            />
+                        </Delay>
+                    </KeepRunningUntilFailure>
+                </Inverter>
             </Parallel>
         </Sequence>
     </BehaviorTree>

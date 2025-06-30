@@ -5,27 +5,19 @@
             <!-- 1. 确保解锁 -->
             <LockControl state="1"/>
 
-            <!-- 2. 设置悬停参数 -->
-            <SetLineParameters
-                    type="15"
-                    antiDis="2.0"
-                    vehiTypParam="vehiType"
-                    spdParam="spd"
-            />
+            <ReactiveFallback name="ReachHoverPosition">
+                <CheckArriveDestination target="{hover_ctrl}" arvdis="2.0"/>
+                <Repeat num_cycles="50">
+                    <OffBoardControl ctrl="{hover_ctrl}"/>
+                </Repeat>
+            </ReactiveFallback>
 
-            <!-- 3. 设置悬停位置 -->
-            <SetDestinationPoint
-                    target="{hover_ctrl}"
-                    step="0"
-                    obsHgh="-25.0"
-            />
-
-            <!-- 4. 执行悬停控制 -->
-            <KeepRunningUntilFailure>
-                <Delay delay_msec="100">
-                    <OffBoardControl ctrl="{hover_ctrl}" yaw="0.0"/>
+            <!-- 2. 悬停一定时间后结束 -->
+            <Repeat num_cycles="100">
+                <Delay delay_msec="200">
+                    <OffBoardControl ctrl="{hover_ctrl}"/>
                 </Delay>
-            </KeepRunningUntilFailure>
+            </Repeat>
         </Sequence>
     </BehaviorTree>
 </root>

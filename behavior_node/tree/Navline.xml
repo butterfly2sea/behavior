@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4">
+    <BehaviorTree ID="Navline">
+        <Sequence name="NavlineSequence">
+            <!-- 阶段1: 初始化参数 -->
+            <Sequence name="InitializationPhase">
+                <SetLineParameters
+                        type="1023"
+                        antiDis="5.0"
+                        vehiTypParam="vehiType"
+                        spdParam="spd"
+                        disParam="arvDis"
+                        ptTypParam="pointTag"
+                        ptsParam="wayPoints"
+                        lpsParam="loops"
+                />
+
+                <LockControl state="1" />
+            </Sequence>
+
+            <!-- 阶段2: 启动编队导航 -->
+            <NavigationControl
+                    frame="1"
+                    command="0"
+            />
+
+            <!-- 阶段3: 航线飞行循环 -->
+            <ReactiveFallback name="NavlineLoop">
+                <!-- 检查是否完成所有循环 -->
+                <CheckQuitLineLoop />
+
+                <!-- 继续航线飞行 -->
+                <KeepRunningUntilFailure>
+                    <Sequence name="WaypointExecution">
+                        <!-- 设置下一个航点 -->
+                        <SetDestinationPoint
+                                target="{navline_ctrl}"
+                                step="2"
+                                obsHgh="-30.0"
+                                ptsParam="wayPoints"
+                                ptTypParam="pointTag"
+                                dstParam="wayPoints"
+                        />
+
+                        <!-- 飞向航点 -->
+                        <ReactiveFallback>
+                            <CheckArriveDestination
+                                    target="{navline_ctrl}"
+                                    arvdis="3.0"
+                            />
+                            <Repeat num_cycles="100">
+                                <Delay delay_msec="100">
+                                    <OffBoardControl
+                                            ctrl="{navline_ctrl}"
+                                            yaw="0.0"
+                                    />
+                                </Delay>
+                            </Repeat>
+                        </ReactiveFallback>
+
+                        <!-- 在航点短暂停留 -->
+                        <Delay delay_msec="1000">
+                            <OffBoardControl
+                                    ctrl="{navline_ctrl}"
+                                    yaw="0.0"
+                            />
+                        </Delay>
+                    </Sequence>
+                </KeepRunningUntilFailure>
+            </ReactiveFallback>
+        </Sequence>
+    </BehaviorTree>
+</root>

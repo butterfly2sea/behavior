@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4">
+    <BehaviorTree ID="JoyStick">
+        <Sequence name="JoystickControlSequence">
+            <!-- 1. 确保载具已解锁 -->
+            <LockControl state="1"/>
+
+            <!-- 2. 设置摇杆控制参数 -->
+            <SetLineParameters
+                    type="15"
+                    antiDis="3.0"
+                    vehiTypParam="vehiType"
+                    spdParam="spd"
+            />
+
+            <!-- 3. 切换到手动控制模式 -->
+            <FlightModeControl mode="1"/>
+
+            <!-- 4. 摇杆控制循环 -->
+            <KeepRunningUntilFailure>
+                <Delay delay_msec="50">
+                    <JoyControl/>
+                </Delay>
+            </KeepRunningUntilFailure>
+        </Sequence>
+    </BehaviorTree>
+</root>

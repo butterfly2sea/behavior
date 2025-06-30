@@ -19,12 +19,21 @@
                     target="{land_ctrl}"
             />
 
-            <!-- 4. 执行降落控制 -->
-            <KeepRunningUntilFailure>
-                <Delay delay_msec="200">
-                    <OffBoardControl ctrl="{land_ctrl}" yaw="0.0"/>
-                </Delay>
-            </KeepRunningUntilFailure>
+            <!-- 4. 执行降落控制循环 - 直到到达地面 -->
+            <ReactiveFallback name="LandingLoop">
+                <!-- 检查是否已经降落到地面 -->
+                <CheckArriveDestination
+                        target="{land_ctrl}"
+                        arvdis="3.0"
+                        onlyz="true"
+                />
+                <!-- 持续降落控制 -->
+                <KeepRunningUntilFailure>
+                    <Delay delay_msec="200">
+                        <OffBoardControl ctrl="{land_ctrl}" yaw="0.0"/>
+                    </Delay>
+                </KeepRunningUntilFailure>
+            </ReactiveFallback>
         </Sequence>
     </BehaviorTree>
 </root>

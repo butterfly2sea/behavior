@@ -1,0 +1,25 @@
+{
+    "stage": [
+        {
+            "actions": [
+                {
+                    "groupid": 1,
+                    "id": 3,
+                    "name": "Land",
+                    "params": [
+                    ],
+                    "triggers": [
+                        {
+                            "name": "position",
+                            "type": "string",
+                            "value": "manual"
+                        }
+                    ]
+                }
+            ],
+            "cmd": "start",
+            "name": "降落",
+            "sn": 0
+        }
+    ]
+}

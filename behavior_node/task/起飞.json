@@ -1,0 +1,30 @@
+{
+    "stage": [
+        {
+            "actions": [
+                {
+                    "groupid": 1,
+                    "id": 3,
+                    "name": "TakeOff",
+                    "params": [
+                        {
+                            "name": "alt",
+                            "type": "float",
+                            "value": "50"
+                        }
+                    ],
+                    "triggers": [
+                        {
+                            "name": "triggleType",
+                            "type": "string",
+                            "value": "manual"
+                        }
+                    ]
+                }
+            ],
+            "cmd": "start",
+            "name": "起飞",
+            "sn": 0
+        }
+    ]
+}

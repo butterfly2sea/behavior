@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4">
+    <BehaviorTree ID="WaypointMission">
+        <Sequence name="WaypointMissionSequence">
+            <!-- 阶段1: 任务初始化 -->
+            <Sequence name="MissionInitialization">
+                <SetLineParameters
+                        type="1023"
+                        antiDis="5.0"
+                        vehiTypParam="vehiType"
+                        spdParam="spd"
+                        disParam="arvDis"
+                        ptTypParam="pointTag"
+                        ptsParam="wayPoints"
+                        lpsParam="loops"
+                />
+
+                <LockControl state="1" />
+
+                <!-- 设置起飞高度 -->
+                <SetDestinationPoint
+                        target="{mission_start_ctrl}"
+                        step="0"
+                        obsHgh="-30.0"
+                />
+            </Sequence>
+
+            <!-- 阶段2: 起飞到任务高度 -->
+            <Sequence name="TakeoffToMissionAltitude">
+                <FlightModeControl mode="4" param7="-30.0" />
+
+                <ReactiveFallback>
+                    <CheckArriveDestination
+                            target="{mission_start_ctrl}"
+                            arvdis="3.0"
+                            onlyz="true"
+                    />
+                    <Repeat num_cycles="50">
+                        <Delay delay_msec="200">
+                            <OffBoardControl
+                                    ctrl="{mission_start_ctrl}"
+                                    yaw="0.0"
+                            />
+                        </Delay>
+                    </Repeat>
+                </ReactiveFallback>
+            </Sequence>
+
+            <!-- 阶段3: 航点任务执行循环 -->
+            <ReactiveFallback name="WaypointMissionLoop">
+                <!-- 检查是否完成所有循环 -->
+                <CheckQuitLineLoop />
+
+                <!-- 继续航点任务 -->
+                <KeepRunningUntilFailure>
+                    <Sequence name="WaypointExecution">
+                        <!-- 获取并设置下一个航点 -->
+                        <SetDestinationPoint
+                                target="{waypoint_ctrl}"
+                                step="2"
+                                obsHgh="-30.0"
+                                ptsParam="wayPoints"
+                                ptTypParam="pointTag"
+                                dstParam="wayPoints"
+                        />
+
+                        <!-- 飞向航点 -->
+                        <ReactiveFallback name="FlyToWaypoint">
+                            <CheckArriveDestination
+                                    target="{waypoint_ctrl}"
+                                    arvdis="3.0"
+                            />
+                            <KeepRunningUntilFailure>
+                                <Delay delay_msec="100">
+                                    <OffBoardControl
+                                            ctrl="{waypoint_ctrl}"
+                                            yaw="0.0"
+                                    />
+                                </Delay>
+                            </KeepRunningUntilFailure>
+                        </ReactiveFallback>
+
+                        <!-- 在航点执行任务操作 -->
+                        <Sequence name="WaypointMissionAction">
+                            <!-- 在航点停留执行任务 -->
+                            <Repeat num_cycles="20">
+                                <Delay delay_msec="200">
+                                    <OffBoardControl
+                                            ctrl="{waypoint_ctrl}"
+                                            yaw="0.0"
+                                    />
+                                </Delay>
+                            </Repeat>
+
+                            <!-- 可选的搜索或数据收集 -->
+                            <Delay delay_msec="1000">
+                                <OffBoardControl
+                                        ctrl="{waypoint_ctrl}"
+                                        yaw="0.0"
+                                />
+                            </Delay>
+                        </Sequence>
+                    </Sequence>
+                </KeepRunningUntilFailure>
+            </ReactiveFallback>
+
+            <!-- 阶段4: 任务完成后返回 -->
+            <Sequence name="MissionCompletion">
+                <!-- 飞向起始点 -->
+                <SetDestinationPoint
+                        target="{return_ctrl}"
+                        step="0"
+                        obsHgh="-30.0"
+                />
+
+                <ReactiveFallback>
+                    <CheckArriveDestination
+                            target="{return_ctrl}"
+                            arvdis="5.0"
+                    />
+                    <Repeat num_cycles="100">
+                        <Delay delay_msec="100">
+                            <OffBoardControl
+                                    ctrl="{return_ctrl}"
+                                    yaw="0.0"
+                            />
+                        </Delay>
+                    </Repeat>
+                </ReactiveFallback>
+
+                <!-- 降落 -->
+                <FlightModeControl mode="5" />
+
+                <SetDestinationPoint
+                        target="{landing_ctrl}"
+                        step="0"
+                        obsHgh="-5.0"
+                />
+
+                <Repeat num_cycles="25">
+                    <Delay delay_msec="400">
+                        <OffBoardControl
+                                ctrl="{landing_ctrl}"
+                                yaw="0.0"
+                        />
+                    </Delay>
+                </Repeat>
+            </Sequence>
+        </Sequence>
+    </BehaviorTree>
+</root>

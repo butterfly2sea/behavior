@@ -390,14 +390,19 @@ class ROSCommunicationManager {
           continue;
         }
 
-        std::string cmd = stage["cmd"].get<std::string>();
+        if (std::string cmd = stage["cmd"].get<std::string>();cmd == "start") {
+          auto actions = stage["actions"];
+          if (!actions.is_array() || actions.empty()) return;
 
-        if (cmd == "set" || cmd == "start") {
-          processStartCommand(stage);
-        } else if (cmd == "del" || cmd == "stop") {
-          processStopCommand(stage);
-        } else if (cmd == "ins") {
-          processInsertCommand(stage);
+          int stage_sn = stage["sn"].get<int>();
+
+          for (const auto &action : actions) {
+            if (!validateAction(action)) continue;
+            if (action["id"].get<int>() == data_cache_->getVehicleId()) {
+              processSelfMission(action, stage_sn, actions);
+              break;
+            }
+          }
         }
       }
 
@@ -475,39 +480,18 @@ class ROSCommunicationManager {
 
     if (msg->type == CmdType::HeartBeat) return;
 
-    if (msg->dst != vehicle_id) {
-      if (msg->type == CmdType::Takeoff || msg->type == CmdType::Land ||
-          msg->type == CmdType::Loiter || msg->type == CmdType::DoTask ||
-          msg->type == CmdType::Joystick || msg->type == CmdType::DesignAttackObj) {
-        mission_context_->addExcludedId(msg->dst);
-      }
-      return;
+    if (msg->dst != vehicle_id && (msg->type == CmdType::Takeoff || msg->type == CmdType::Land ||
+        msg->type == CmdType::Loiter || msg->type == CmdType::DoTask ||
+        msg->type == CmdType::Joystick || msg->type == CmdType::DesignAttackObj)) {
+      mission_context_->addExcludedId(msg->dst);
     }
 
-//    processCommand(msg);
+    processCommand(msg);
   }
 
-  bool validateStage(const nlohmann::json &stage) {
+  static bool validateStage(const nlohmann::json &stage) {
     return stage.contains("name") && stage.contains("sn") &&
         stage.contains("cmd") && stage.contains("actions");
-  }
-
-  void processStartCommand(const nlohmann::json &stage) {
-    auto actions = stage["actions"];
-    if (!actions.is_array() || actions.empty()) return;
-
-    int stage_sn = stage["sn"].get<int>();
-    auto vehicle_id = data_cache_->getVehicleId();
-
-    for (const auto &action : actions) {
-      if (!validateAction(action)) continue;
-
-      int id = action["id"].get<int>();
-      if (id == vehicle_id) {
-        processSelfMission(action, stage_sn, actions);
-        break;
-      }
-    }
   }
 
   bool validateAction(const nlohmann::json &action) {
@@ -561,24 +545,6 @@ class ROSCommunicationManager {
                   action_name.c_str(), stage_sn);
   }
 
-  void processStopCommand(const nlohmann::json &stage) {
-    if (!mission_context_) return;
-
-    int stage_sn = stage["sn"].get<int>();
-
-    if (mission_context_->getStage() == stage_sn) {
-      requestTreeStop();
-      publishTaskStatus(stage_sn, StatusStage::StsFailed);
-      mission_context_->clear();
-      txtLog().info(THISMODULE "Stopped mission for stage: %d", stage_sn);
-    }
-  }
-
-  void processInsertCommand(const nlohmann::json &stage) {
-    txtLog().info(THISMODULE "Insert command received for stage: %s",
-                  stage["name"].get<std::string>().c_str());
-  }
-
   void processCommand(custom_msgs::msg::CommandRequest::SharedPtr msg) {
     custom_msgs::msg::CommandResponse response;
     response.id = data_cache_->getVehicleId();
@@ -590,6 +556,8 @@ class ROSCommunicationManager {
       case CmdType::SetVideo:handleSetVideoCommand(msg, response);
         break;
       case CmdType::CmdSetHome:handleSetHomeCommand(msg, response);
+        break;
+      case CmdType::Land:mission_context_->setAction("Land");
         break;
       default:txtLog().warnning(THISMODULE "Unhandled command type: %d", msg->type);
         break;

@@ -14,7 +14,8 @@
 class MissionContext {
  private:
   // 原子操作的简单数据
-  std::atomic<uint8_t> target_id_{0};
+  std::atomic<uint8_t> search_target_id_{0};
+  std::atomic<uint8_t> attack_target_id_{0};
   std::atomic<int> stage_sn_{-1};
   std::atomic<int> group_id_{-1};
   std::atomic<bool> mission_active_{false};
@@ -46,12 +47,21 @@ class MissionContext {
   explicit MissionContext() { txtLog().info(THISMODULE "Initialized mission context"); }
 
   // 原子操作接口
-  void setTargetId(uint8_t id) {
-    target_id_.store(id, std::memory_order_relaxed);
+  void setSearchTargetId(uint8_t id) {
+    search_target_id_.store(id, std::memory_order_relaxed);
     txtLog().debug(THISMODULE "Set target ID: %d", id);
   }
-  uint8_t getTargetId() const {
-    return target_id_.load(std::memory_order_relaxed);
+  uint8_t getSearchTargetId() const {
+    return search_target_id_.load(std::memory_order_relaxed);
+  }
+
+  void setAttackTargetId(uint8_t id) {
+    attack_target_id_.store(id, std::memory_order_relaxed);
+    txtLog().debug(THISMODULE "Set attack target ID: %d", id);
+  }
+
+  uint8_t getAttackTargetId() const {
+    return attack_target_id_.load(std::memory_order_relaxed);
   }
 
   void setStage(int stage) {
@@ -340,7 +350,7 @@ class MissionContext {
   // 清理操作
   void clear() {
     // 重置原子变量
-    target_id_.store(0, std::memory_order_relaxed);
+    search_target_id_.store(0, std::memory_order_relaxed);
     stage_sn_.store(-1, std::memory_order_relaxed);
     group_id_.store(-1, std::memory_order_relaxed);
     mission_active_.store(false, std::memory_order_relaxed);

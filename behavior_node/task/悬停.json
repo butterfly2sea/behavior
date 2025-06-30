@@ -1,0 +1,49 @@
+{
+    "stage": [
+        {
+            "actions": [
+                {
+                    "groupid": 1,
+                    "id": 3,
+                    "name": "Loiter",
+                    "params": [
+                        {
+                            "name": "duration",
+                            "type": "int",
+                            "value": "10"
+                        }
+                    ],
+                    "triggers": [
+                        {
+                            "name": "triggleType",
+                            "type": "string",
+                            "value": "manual"
+                        }
+                    ]
+                },
+				{
+                    "groupid": 1,
+                    "id": 4,
+                    "name": "Loiter",
+                    "params": [
+                        {
+                            "name": "duration",
+                            "type": "int",
+                            "value": "10"
+                        }
+                    ],
+                    "triggers": [
+                        {
+                            "name": "triggleType",
+                            "type": "string",
+                            "value": "manual"
+                        }
+                    ]
+                }
+            ],
+            "cmd": "start",
+            "name": "悬停",
+            "sn": 0
+        }
+    ]
+}

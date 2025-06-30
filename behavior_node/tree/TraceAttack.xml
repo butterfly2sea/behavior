@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4">
+    <BehaviorTree ID="TraceAttack">
+        <Sequence name="TraceAttackSequence">
+            <!-- 1. 确保载具已解锁 -->
+            <LockControl state="1"/>
+
+            <!-- 2. 设置跟踪打击参数 -->
+            <SetLineParameters
+                    type="15"
+                    antiDis="10.0"
+                    vehiTypParam="vehiType"
+                    spdParam="spd"
+            />
+
+            <!-- 3. 启动跟踪打击控制 -->
+            <TraceAttackControl
+                    frame="1"
+                    command="0"
+                    current="0"
+            />
+
+            <!-- 4. 跟踪打击循环 -->
+            <ReactiveFallback name="TraceAttackLoop">
+                <!-- 检查是否退出跟踪 -->
+                <CheckQuitSearch/>
+
+                <!-- 继续跟踪打击模式 -->
+                <KeepRunningUntilFailure>
+                    <Sequence name="TrackingPattern">
+                        <!-- 设置跟踪位置 -->
+                        <SetDestinationPoint
+                                step="0"
+                                obsHgh="-25.0"
+                                target="{trace_ctrl}"
+                        />
+
+                        <!-- 执行跟踪控制 -->
+                        <Delay delay_msec="200">
+                            <OffBoardControl
+                                    ctrl="{trace_ctrl}"
+                                    yaw="0.0"
+                            />
+                        </Delay>
+                    </Sequence>
+                </KeepRunningUntilFailure>
+            </ReactiveFallback>
+        </Sequence>
+    </BehaviorTree>
+</root>

@@ -1,0 +1,44 @@
+{
+    "stage": [
+        {
+            "actions": [
+                {
+                    "groupid": 2,
+                    "id": 4,
+                    "name": "Land",
+                    "params": [
+                    ],
+                    "triggers": [
+                        {
+                            "name": "position",
+                            "type": "string",
+                            "value": "manual"
+                        }
+                    ]
+                },
+                {
+                    "groupid": 1,
+                    "id": 3,
+                    "name": "TakeOff",
+                    "params": [
+                        {
+                            "name": "alt",
+                            "type": "float",
+                            "value": "90"
+                        }
+                    ],
+                    "triggers": [
+                        {
+                            "name": "triggleType",
+                            "type": "string",
+                            "value": "manual"
+                        }
+                    ]
+                }
+            ],
+            "cmd": "start",
+            "name": "3起4降",
+            "sn": 0
+        }
+    ]
+}
