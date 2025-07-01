@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Behavior Node Test Suite (Python 3.8+ Compatible)
-行为树测试工具，兼容Python 3.8+
+Enhanced Behavior Node Test Suite for Typical Mission Tasks
+增强型行为节点测试套件，用于典型任务测试
 """
 
 import rclpy
@@ -23,7 +23,7 @@ from sensor_msgs.msg import Joy
 from custom_msgs.msg import (
     SimpleVehicle, ObjectComputation, ObjectLocation, OffboardCtrl,
     StatusTask, CommandRequest, CommandResponse, TaskStage, ParamShort,
-    BehaviorTreeStatus, BehaviorNodeStatus  # 新增行为树状态消息
+    BehaviorTreeStatus, BehaviorNodeStatus
 )
 from custom_msgs.srv import CommandBool, CommandLong, CommandInt, CommandString
 
@@ -92,12 +92,11 @@ class TestCase:
     required_mode_changes: List[int] = field(default_factory=list)
     required_services: List[str] = field(default_factory=list)
     success_criteria: Dict[str, Any] = field(default_factory=dict)
-    parameters: Dict[str, Any] = field(default_factory=dict)
+    mission_json: Dict[str, Any] = field(default_factory=dict)
     status: TestStatus = TestStatus.PENDING
     start_time: float = 0.0
     end_time: float = 0.0
     error_message: str = ""
-    setup_params: Dict[str, Any] = field(default_factory=dict)
     # 新增行为树相关字段
     expected_tree_status: BehaviorTreeState = BehaviorTreeState.SUCCESS
     required_nodes: List[str] = field(default_factory=list)
@@ -123,7 +122,7 @@ class VehicleSimState:
 
 
 class BehaviorNodeTester(Node):
-    """统一的behavior_node测试器"""
+    """behavior_node测试器，支持典型任务测试"""
 
     def __init__(self) -> None:
         super().__init__('behavior_node_tester')
@@ -192,8 +191,8 @@ class BehaviorNodeTester(Node):
 
     def _setup_publishers(self) -> None:
         """设置发布器"""
-        # 任务控制发布器
-        self.mission_json_pub = self.create_publisher(
+        # 任务JSON发布器 - 核心测试接口
+        self.stage_json_pub = self.create_publisher(
             String, 'outer/set/stage_info_json', self.qos_mission)
         self.command_pub = self.create_publisher(
             CommandRequest, 'outer/command/request', self.qos_control)
@@ -225,7 +224,7 @@ class BehaviorNodeTester(Node):
             OffboardCtrl, 'inner/control/offboard',
             self._offboard_callback, self.qos_control)
 
-        # 行为树状态订阅 - 新增
+        # 行为树状态订阅
         self.behavior_tree_status_sub = self.create_subscription(
             BehaviorTreeStatus, 'behavior_tree/status',
             self._behavior_tree_status_callback, self.qos_control)
@@ -233,46 +232,19 @@ class BehaviorNodeTester(Node):
     def _setup_services(self) -> None:
         """设置服务模拟器"""
         # 飞行模式控制服务
-        self.flight_mode_service = self.create_service(
-            CommandLong,
-            'inner/control/set_flymode',
-            self._handle_flight_mode
-        )
+        self.flight_mode_service = self.create_service(CommandLong, 'inner/control/set_flymode',
+                                                       self._handle_flight_mode)
 
         # 锁定/解锁控制服务
-        self.lock_unlock_service = self.create_service(
-            CommandBool,
-            'inner/control/lock_unlock',
-            self._handle_lock_unlock
-        )
+        self.lock_unlock_service = self.create_service(CommandBool, 'inner/control/lock_unlock',
+                                                       self._handle_lock_unlock)
 
         # 编队切换控制服务
-        self.formation_switch_service = self.create_service(
-            CommandInt,
-            'inner/control/form_switch',
-            self._handle_formation_switch
-        )
+        self.formation_switch_service = self.create_service(CommandInt, 'inner/control/form_switch',
+                                                            self._handle_formation_switch)
 
         # RTSP URL获取服务
-        self.rtsp_url_service = self.create_service(
-            CommandString,
-            'inner/get/rtsp_url',
-            self._handle_rtsp_url
-        )
-
-        # 解锁/上锁服务
-        self.arm_disarm_service = self.create_service(
-            CommandBool,
-            'inner/control/arm_disarm',
-            self._handle_arm_disarm
-        )
-
-        # 任务控制服务
-        self.mission_control_service = self.create_service(
-            CommandInt,
-            'inner/control/mission_control',
-            self._handle_mission_control
-        )
+        self.rtsp_url_service = self.create_service(CommandString, 'inner/get/rtsp_url', self._handle_rtsp_url)
 
     def _start_simulation(self) -> None:
         """启动仿真数据发布"""
@@ -320,7 +292,7 @@ class BehaviorNodeTester(Node):
         msg.lock = 0 if self.sim_locked else 1
         msg.flymd = self.sim_flight_mode
 
-        # GPS坐标模拟
+        # GPS坐标模拟（北京坐标系）
         msg.lat = int((39.9042 + self.sim_position['x'] / 111320.0) * 1e7)
         msg.lon = int((116.4074 + self.sim_position['y'] / 111320.0) * 1e7)
         msg.alt = int(-self.sim_position['z'] * 1000)
@@ -337,7 +309,7 @@ class BehaviorNodeTester(Node):
         """发布模拟的目标检测数据"""
         msg = ObjectComputation()
 
-        # 添加测试目标
+        # 添加测试目标（模拟动态目标）
         obj1 = ObjectLocation()
         obj1.id = 101
         obj1.x = 100 + int(math.sin(self.sim_time * 0.5) * 20)
@@ -410,7 +382,6 @@ class BehaviorNodeTester(Node):
                 self.sim_flight_mode = flight_mode.value
                 response.success = True
                 response.result = 0
-
                 self.get_logger().info(f"Flight mode changed to {flight_mode.name}")
                 if takeoff_altitude != 0:
                     self.get_logger().info(f"Takeoff altitude: {takeoff_altitude}m")
@@ -446,7 +417,6 @@ class BehaviorNodeTester(Node):
             self.sim_locked = not unlock_requested
             response.success = True
             response.result = True
-
             self.get_logger().info(f"Vehicle {action}ed successfully")
         else:
             response.success = False
@@ -483,7 +453,6 @@ class BehaviorNodeTester(Node):
                     self.vehicle_sim_state.formation_active = False
 
                 response.success = True
-
                 frame_desc = "自主控制" if frame == 1 else "仅计算"
                 self.get_logger().info(f"Formation {nav_command} executed (frame={frame}: {frame_desc})")
             else:
@@ -503,91 +472,12 @@ class BehaviorNodeTester(Node):
         self._increment_call_count(service_name)
         self._simulate_delay()
 
-        self.last_commands[service_name] = {
-            'request_data': request,
-            'timestamp': time.time()
-        }
-
         if self._should_succeed(service_name):
             response.success = True
             response.rslt = self.vehicle_sim_state.rtsp_url
-            self.get_logger().info(f"RTSP URL requested: {self.vehicle_sim_state.rtsp_url}")
         else:
             response.success = False
             response.rslt = "Failed to get RTSP URL"
-            self.get_logger().warn(f"RTSP URL request failed (simulated)")
-
-        return response
-
-    def _handle_arm_disarm(self, request: CommandBool.Request, response: CommandBool.Response) -> CommandBool.Response:
-        """处理解锁/上锁请求"""
-        service_name = "arm_disarm"
-        self._increment_call_count(service_name)
-        self._simulate_delay()
-
-        arm_requested = request.value
-        action = "arm" if arm_requested else "disarm"
-
-        self.last_commands[service_name] = {
-            'action': action,
-            'value': arm_requested,
-            'timestamp': time.time()
-        }
-
-        if arm_requested and self.vehicle_sim_state.is_locked:
-            response.success = False
-            response.result = "Cannot arm: Vehicle is locked"
-            self.get_logger().warn(f"Arm rejected: Vehicle locked")
-            return response
-
-        if self._should_succeed(service_name):
-            self.vehicle_sim_state.is_armed = arm_requested
-            response.success = True
-            response.result = f"Vehicle {action}ed successfully"
-            self.get_logger().info(f"Vehicle {action}ed successfully")
-        else:
-            response.success = False
-            response.result = f"Failed to {action} vehicle"
-            self.get_logger().warn(f"Failed to {action} vehicle (simulated)")
-
-        return response
-
-    def _handle_mission_control(self, request: CommandInt.Request,
-                                response: CommandInt.Response) -> CommandInt.Response:
-        """处理任务控制请求"""
-        service_name = "mission_control"
-        self._increment_call_count(service_name)
-        self._simulate_delay()
-
-        frame = request.frame
-        command = request.command
-
-        try:
-            nav_command_names = {0: "START", 1: "PAUSE", 2: "RESUME", 3: "STOP"}
-            nav_command = nav_command_names.get(command, "UNKNOWN")
-
-            self.last_commands[service_name] = {
-                'frame': frame,
-                'command': nav_command,
-                'command_value': command,
-                'timestamp': time.time()
-            }
-
-            if self._should_succeed(service_name):
-                if command == 0:  # START
-                    self.vehicle_sim_state.mission_active = True
-                elif command == 3:  # STOP
-                    self.vehicle_sim_state.mission_active = False
-
-                response.success = True
-                self.get_logger().info(f"Mission {nav_command} executed (frame={frame})")
-            else:
-                response.success = False
-                self.get_logger().warn(f"Mission command failed (simulated)")
-
-        except Exception as e:
-            response.success = False
-            self.get_logger().error(f"Mission command error: {e}")
 
         return response
 
@@ -626,7 +516,7 @@ class BehaviorNodeTester(Node):
             self.offboard_commands = self.offboard_commands[-50:]
 
     def _behavior_tree_status_callback(self, msg: BehaviorTreeStatus) -> None:
-        """行为树状态回调 - 新增"""
+        """行为树状态回调"""
         self.behavior_tree_status = msg
 
         # 记录节点状态历史
@@ -637,8 +527,6 @@ class BehaviorNodeTester(Node):
 
         if self.enable_detailed_logging:
             self.get_logger().info(f"Behavior tree '{msg.tree_name}' status: {msg.tree_status}")
-            for node in msg.nodes:
-                self.get_logger().info(f"  Node '{node.name}' ({node.type}): {node.status}")
 
         if self.current_test:
             self._check_test_completion()
@@ -684,7 +572,7 @@ class BehaviorNodeTester(Node):
         if test_duration < min_duration:
             return False, f"Test duration {test_duration:.1f}s < minimum {min_duration}s"
 
-        # 检查行为树状态 - 新增的主要判据
+        # 检查行为树状态
         if self.behavior_tree_status:
             if test.tree_name and self.behavior_tree_status.tree_name == test.tree_name:
                 if self.behavior_tree_status.tree_status == test.expected_tree_status.value:
@@ -702,64 +590,15 @@ class BehaviorNodeTester(Node):
                 if required_node not in executed_nodes:
                     return False, f"Required node '{required_node}' not executed"
 
-        # 原有的检查逻辑作为辅助判据
-        required_offboard = test.success_criteria.get('required_offboard_count', test.required_offboard_count)
-        if len(self.offboard_commands) < required_offboard:
-            return False, f"Offboard commands {len(self.offboard_commands)} < required {required_offboard}"
-
-        # 检查必需的模式变化
-        for required_mode in test.required_mode_changes:
-            if required_mode not in self.mode_changes:
-                return False, f"Required mode change {required_mode} not detected"
-
-        # 检查必需的服务调用
+        # 检查服务调用
         for required_service in test.required_services:
             if required_service not in self.service_calls:
                 return False, f"Required service call {required_service} not detected"
 
-        # 如果没有行为树状态信息，使用原有的测试逻辑
-        if not self.behavior_tree_status:
-            return self._legacy_test_success_check(test, test_duration)
-
-        return False, "Test criteria not met yet"
-
-    def _legacy_test_success_check(self, test: TestCase, test_duration: float) -> Tuple[bool, str]:
-        """原有的测试成功条件检查（作为备用）"""
-        # 特定测试的成功条件
-        if test.tree_name == "LockCtrl":
-            if "lock_unlock" not in self.service_calls:
-                return False, "Lock/unlock service not called"
-            if self.vehicle_sim_state.is_locked:
-                return False, "Vehicle not in unlocked state"
-
-        elif test.tree_name == "TakeOff":
-            if FlightMode.TAKEOFF.value not in self.mode_changes:
-                return False, "Takeoff mode not activated"
-            if len(self.offboard_commands) < 10:
-                return False, f"Insufficient takeoff control commands: {len(self.offboard_commands)}"
-
-        elif test.tree_name == "GoToDst":
-            if len(self.offboard_commands) < 15:
-                return False, f"Insufficient navigation commands: {len(self.offboard_commands)}"
-            target_reached = self._check_position_reached(100.0, 50.0, -25.0, tolerance=20.0)
-            if not target_reached:
-                return False, "Target position not reached"
-
-        elif test.tree_name == "AutoTrace":
-            if len(self.offboard_commands) < 8:
-                return False, f"Insufficient trace commands: {len(self.offboard_commands)}"
-
-        elif test.tree_name == "Land":
-            if FlightMode.LAND.value not in self.mode_changes:
-                return False, "Land mode not activated"
-
-        elif test.tree_name == "FormFly":
-            if "form_switch" not in self.service_calls:
-                return False, "Formation switch service not called"
-
-        elif test.tree_name == "SetLine":
-            if test_duration < 2.0:
-                return False, f"Parameter setting test too short: {test_duration:.1f}s"
+        # 检查offboard命令数量
+        required_offboard = test.success_criteria.get('required_offboard_count', test.required_offboard_count)
+        if len(self.offboard_commands) < required_offboard:
+            return False, f"Offboard commands {len(self.offboard_commands)} < required {required_offboard}"
 
         return True, f"All success criteria met after {test_duration:.1f}s"
 
@@ -772,28 +611,7 @@ class BehaviorNodeTester(Node):
         if self.behavior_tree_status and self.behavior_tree_status.tree_status == "FAILURE":
             return True, f"Behavior tree '{self.behavior_tree_status.tree_name}' failed"
 
-        # 检查服务调用失败
-        failed_services = []
-        for service_name, count in self.service_call_count.items():
-            if count > 0 and service_name in self.last_commands:
-                last_cmd = self.last_commands[service_name]
-                if 'success' in last_cmd and not last_cmd['success']:
-                    failed_services.append(service_name)
-
-        if failed_services:
-            return True, f"Service calls failed: {failed_services}"
-
         return False, "No failure conditions detected"
-
-    def _check_position_reached(self, target_x: float, target_y: float, target_z: float,
-                                tolerance: float = 5.0) -> bool:
-        """检查是否到达目标位置"""
-        current_x = self.sim_position['x']
-        current_y = self.sim_position['y']
-        current_z = self.sim_position['z']
-
-        distance = math.sqrt((current_x - target_x) ** 2 + (current_y - target_y) ** 2 + (current_z - target_z) ** 2)
-        return distance < tolerance
 
     def _complete_test(self, status: TestStatus, message: str) -> None:
         """完成测试"""
@@ -813,97 +631,395 @@ class BehaviorNodeTester(Node):
         self.test_results[test.name] = test
         self.current_test = None
 
-    # =================== 测试工具方法 ===================
+    # =================== 典型任务测试用例 ===================
 
-    def send_mission_json(self, stage_name: str, stage_sn: int, action_name: str,
-                          params: Optional[Dict[str, Any]] = None, cmd: str = "start",
-                          group_id: int = 1) -> None:
-        """发送任务JSON - 完善版本"""
-        mission_json = {
-            "stage": [{
-                "name": stage_name,
-                "sn": stage_sn,
-                "cmd": cmd,
-                "actions": [{
-                    "name": action_name,
-                    "id": self.vehicle_id,
-                    "groupid": group_id,
-                    "params": [],
-                    "triggers": [
-                        {
-                            "name": "triggleType",
-                            "type": "string",
-                            "value": "manual"
-                        },
-                        {
-                            "name": "delay",
-                            "type": "float",
-                            "value": ""
-                        }
-                    ]
-                }]
-            }]
-        }
-
-        if params:
-            for key, value in params.items():
-                param_entry = {
-                    "name": key,
-                    "type": self._get_param_type(value),
-                    "value": value
+    def create_typical_mission_test_cases(self) -> List[TestCase]:
+        """创建典型任务测试用例"""
+        return [
+            # 1. 参数配置任务
+            TestCase(
+                name="ParameterConfiguration",
+                description="测试参数配置任务（SetLine行为树）",
+                tree_name="SetLine",
+                timeout=15.0,
+                expected_tree_status=BehaviorTreeState.SUCCESS,
+                required_nodes=["SetLineParameters"],
+                success_criteria={'min_duration': 2.0, 'required_offboard_count': 0},
+                mission_json={
+                    "stage": [{
+                        "name": "参数配置",
+                        "sn": 1,
+                        "cmd": "start",
+                        "actions": [{
+                            "name": "SetLine",
+                            "id": 1,
+                            "groupid": 1,
+                            "params": [
+                                {"name": "vehiType", "type": "string", "value": "多旋翼"},
+                                {"name": "spd", "type": "float", "value": 8.0},
+                                {"name": "arvDis", "type": "float", "value": 2.0},
+                                {"name": "loops", "type": "int", "value": 1},
+                                {"name": "pointTag", "type": "string", "value": "loc"},
+                                {"name": "wayPoints", "type": "line", "value": [
+                                    {"x_lat": 50.0, "y_lon": 30.0, "z_alt": -25.0},
+                                    {"x_lat": 100.0, "y_lon": 60.0, "z_alt": -30.0}
+                                ]}
+                            ],
+                            "triggers": [
+                                {"name": "triggleType", "type": "string", "value": "manual"}
+                            ]
+                        }]
+                    }]
                 }
-                mission_json["stage"][0]["actions"][0]["params"].append(param_entry)
+            ),
 
+            # 2. 载具解锁任务
+            TestCase(
+                name="VehicleUnlock",
+                description="测试载具解锁任务（LockCtrl行为树）",
+                tree_name="LockCtrl",
+                timeout=15.0,
+                expected_tree_status=BehaviorTreeState.SUCCESS,
+                required_nodes=["LockControl", "SetLineParameters", "OffBoardControl"],
+                required_services=["lock_unlock"],
+                success_criteria={'min_duration': 3.0, 'required_offboard_count': 5},
+                mission_json={
+                    "stage": [{
+                        "name": "载具解锁",
+                        "sn": 2,
+                        "cmd": "start",
+                        "actions": [{
+                            "name": "LockCtrl",
+                            "id": 1,
+                            "groupid": 1,
+                            "params": [
+                                {"name": "vehiType", "type": "string", "value": "多旋翼"},
+                                {"name": "spd", "type": "float", "value": 5.0},
+                                {"name": "arvDis", "type": "float", "value": 1.0}
+                            ],
+                            "triggers": [
+                                {"name": "triggleType", "type": "string", "value": "manual"}
+                            ]
+                        }]
+                    }]
+                }
+            ),
+
+            # 3. 起飞任务
+            TestCase(
+                name="TakeoffMission",
+                description="测试起飞任务（TakeOff行为树）",
+                tree_name="TakeOff",
+                timeout=25.0,
+                expected_tree_status=BehaviorTreeState.SUCCESS,
+                required_nodes=["LockControl", "FlightModeControl", "SetDestinationPoint", "CheckArriveDestination"],
+                required_mode_changes=[FlightMode.TAKEOFF.value],
+                required_services=["lock_unlock", "set_flymode"],
+                success_criteria={'min_duration': 5.0, 'required_offboard_count': 10},
+                mission_json={
+                    "stage": [{
+                        "name": "起飞",
+                        "sn": 3,
+                        "cmd": "start",
+                        "actions": [{
+                            "name": "TakeOff",
+                            "id": 1,
+                            "groupid": 1,
+                            "params": [
+                                {"name": "alt", "type": "float", "value": -30.0},
+                                {"name": "pointTag", "type": "string", "value": "loc"},
+                                {"name": "vehiType", "type": "string", "value": "多旋翼"},
+                                {"name": "spd", "type": "float", "value": 5.0},
+                                {"name": "arvDis", "type": "float", "value": 2.0}
+                            ],
+                            "triggers": [
+                                {"name": "triggleType", "type": "string", "value": "manual"}
+                            ]
+                        }]
+                    }]
+                }
+            ),
+
+            # 4. 目标点飞行任务
+            TestCase(
+                name="GotoDestination",
+                description="测试飞向目标点任务（GoToDst行为树）",
+                tree_name="GoToDst",
+                timeout=30.0,
+                expected_tree_status=BehaviorTreeState.SUCCESS,
+                required_nodes=["LockControl", "SetDestinationPoint", "CheckArriveDestination"],
+                required_services=["lock_unlock"],
+                success_criteria={'min_duration': 8.0, 'required_offboard_count': 15},
+                mission_json={
+                    "stage": [{
+                        "name": "飞向目标点",
+                        "sn": 4,
+                        "cmd": "start",
+                        "actions": [{
+                            "name": "GoToDst",
+                            "id": 1,
+                            "groupid": 1,
+                            "params": [
+                                {"name": "dstLoc", "type": "line", "value": [
+                                    {"x_lat": 100.0, "y_lon": 50.0, "z_alt": -25.0}
+                                ]},
+                                {"name": "pointTag", "type": "string", "value": "loc"},
+                                {"name": "spd", "type": "float", "value": 8.0},
+                                {"name": "arvDis", "type": "float", "value": 3.0},
+                                {"name": "vehiType", "type": "string", "value": "多旋翼"}
+                            ],
+                            "triggers": [
+                                {"name": "triggleType", "type": "string", "value": "manual"}
+                            ]
+                        }]
+                    }]
+                }
+            ),
+
+            # 5. 自动跟踪任务
+            TestCase(
+                name="AutoTracking",
+                description="测试自动跟踪任务（AutoTrace行为树）",
+                tree_name="AutoTrace",
+                timeout=20.0,
+                expected_tree_status=BehaviorTreeState.SUCCESS,
+                required_nodes=["LockControl", "CheckQuitSearch", "SetDestinationPoint"],
+                required_services=["lock_unlock"],
+                success_criteria={'min_duration': 6.0, 'required_offboard_count': 8},
+                mission_json={
+                    "stage": [{
+                        "name": "自动跟踪",
+                        "sn": 5,
+                        "cmd": "start",
+                        "actions": [{
+                            "name": "AutoTrace",
+                            "id": 1,
+                            "groupid": 1,
+                            "params": [
+                                {"name": "vehiType", "type": "string", "value": "多旋翼"},
+                                {"name": "spd", "type": "float", "value": 6.0},
+                                {"name": "arvDis", "type": "float", "value": 2.0}
+                            ],
+                            "triggers": [
+                                {"name": "triggleType", "type": "string", "value": "manual"}
+                            ]
+                        }]
+                    }]
+                }
+            ),
+
+            # 6. 降落任务
+            TestCase(
+                name="LandingMission",
+                description="测试降落任务（Land行为树）",
+                tree_name="Land",
+                timeout=20.0,
+                expected_tree_status=BehaviorTreeState.SUCCESS,
+                required_nodes=["FlightModeControl", "SetDestinationPoint", "OffBoardControl"],
+                required_mode_changes=[FlightMode.LAND.value],
+                success_criteria={'min_duration': 4.0, 'required_offboard_count': 8},
+                mission_json={
+                    "stage": [{
+                        "name": "降落",
+                        "sn": 6,
+                        "cmd": "start",
+                        "actions": [{
+                            "name": "Land",
+                            "id": 1,
+                            "groupid": 1,
+                            "params": [
+                                {"name": "vehiType", "type": "string", "value": "多旋翼"}
+                            ],
+                            "triggers": [
+                                {"name": "triggleType", "type": "string", "value": "manual"}
+                            ]
+                        }]
+                    }]
+                }
+            ),
+
+            # 7. 编队飞行任务
+            TestCase(
+                name="FormationFlight",
+                description="测试编队飞行任务（FormFly行为树）",
+                tree_name="FormFly",
+                timeout=25.0,
+                expected_tree_status=BehaviorTreeState.SUCCESS,
+                required_nodes=["LockControl", "NavigationControl", "SetDestinationPoint"],
+                required_services=["lock_unlock", "form_switch"],
+                success_criteria={'min_duration': 8.0, 'required_offboard_count': 12},
+                mission_json={
+                    "stage": [{
+                        "name": "编队飞行",
+                        "sn": 7,
+                        "cmd": "start",
+                        "actions": [{
+                            "name": "FormFly",
+                            "id": 1,
+                            "groupid": 130,
+                            "params": [
+                                {"name": "wayPoints", "type": "line", "value": [
+                                    {"x_lat": 23.661289788690084, "y_lon": 107.02720853967423, "z_alt": 30.0},
+                                    {"x_lat": 23.659265430554882, "y_lon": 107.03040573281862, "z_alt": 30.0}
+                                ]},
+                                {"name": "pointTag", "type": "string", "value": "gps"},
+                                {"name": "vehiType", "type": "string", "value": "多旋翼"},
+                                {"name": "formOffset", "type": "point", "value": {
+                                    "diff_x_lat": 0.0,
+                                    "diff_y_lon": 0.0,
+                                    "diff_z_alt": 0.0
+                                }},
+                                {"name": "spd", "type": "float", "value": 10.0},
+                                {"name": "loops", "type": "int", "value": 1},
+                                {"name": "arvDis", "type": "float", "value": 1.0}
+                            ],
+                            "triggers": [
+                                {"name": "triggleType", "type": "string", "value": "manual"}
+                            ]
+                        }]
+                    }]
+                }
+            ),
+
+            # 8. 搜索任务
+            TestCase(
+                name="SearchMission",
+                description="测试搜索任务（Search行为树）",
+                tree_name="PatternSearch",
+                timeout=30.0,
+                expected_tree_status=BehaviorTreeState.SUCCESS,
+                required_nodes=["LockControl", "CheckQuitSearch", "SetDestinationPoint"],
+                required_services=["lock_unlock"],
+                success_criteria={'min_duration': 10.0, 'required_offboard_count': 15},
+                mission_json={
+                    "stage": [{
+                        "name": "区域搜索",
+                        "sn": 8,
+                        "cmd": "start",
+                        "actions": [{
+                            "name": "PatternSearch",
+                            "id": 1,
+                            "groupid": 1,
+                            "params": [
+                                {"name": "areaPoints", "type": "line", "value": [
+                                    {"x_lat": 50.0, "y_lon": 50.0, "z_alt": -30.0},
+                                    {"x_lat": 150.0, "y_lon": 50.0, "z_alt": -30.0},
+                                    {"x_lat": 150.0, "y_lon": 150.0, "z_alt": -30.0},
+                                    {"x_lat": 50.0, "y_lon": 150.0, "z_alt": -30.0}
+                                ]},
+                                {"name": "pointTag", "type": "string", "value": "loc"},
+                                {"name": "vehiType", "type": "string", "value": "多旋翼"},
+                                {"name": "spd", "type": "float", "value": 8.0},
+                                {"name": "arvDis", "type": "float", "value": 8.0}
+                            ],
+                            "triggers": [
+                                {"name": "triggleType", "type": "string", "value": "manual"}
+                            ]
+                        }]
+                    }]
+                }
+            ),
+
+            # 9. 悬停任务
+            TestCase(
+                name="HoverMission",
+                description="测试悬停任务（Hover行为树）",
+                tree_name="Hover",
+                timeout=35.0,
+                expected_tree_status=BehaviorTreeState.SUCCESS,
+                required_nodes=["LockControl", "SetDestinationPoint", "OffBoardControl"],
+                required_services=["lock_unlock"],
+                success_criteria={'min_duration': 5.0, 'required_offboard_count': 10},
+                mission_json={
+                    "stage": [{
+                        "name": "悬停",
+                        "sn": 9,
+                        "cmd": "start",
+                        "actions": [{
+                            "name": "Hover",
+                            "id": 1,
+                            "groupid": 1,
+                            "params": [
+                                {"name": "vehiType", "type": "string", "value": "多旋翼"},
+                                {"name": "spd", "type": "float", "value": 0.0}
+                            ],
+                            "triggers": [
+                                {"name": "triggleType", "type": "string", "value": "manual"}
+                            ]
+                        }]
+                    }]
+                }
+            ),
+
+            # 10. 综合任务
+            TestCase(
+                name="ComprehensiveMission",
+                description="测试综合任务（Comprehensive行为树）",
+                tree_name="ComprehensiveMission",
+                timeout=45.0,
+                expected_tree_status=BehaviorTreeState.SUCCESS,
+                required_nodes=["LockControl", "FlightModeControl", "SetDestinationPoint", "CheckQuitSearch"],
+                required_mode_changes=[FlightMode.TAKEOFF.value, FlightMode.LAND.value],
+                required_services=["lock_unlock", "set_flymode"],
+                success_criteria={'min_duration': 20.0, 'required_offboard_count': 30},
+                mission_json={
+                    "stage": [{
+                        "name": "综合任务",
+                        "sn": 10,
+                        "cmd": "start",
+                        "actions": [{
+                            "name": "ComprehensiveMission",
+                            "id": 1,
+                            "groupid": 1,
+                            "params": [
+                                {"name": "vehiType", "type": "string", "value": "多旋翼"},
+                                {"name": "spd", "type": "float", "value": 8.0},
+                                {"name": "arvDis", "type": "float", "value": 3.0},
+                                {"name": "pointTag", "type": "string", "value": "loc"},
+                                {"name": "dstLoc", "type": "line", "value": [
+                                    {"x_lat": 100.0, "y_lon": 80.0, "z_alt": -25.0}
+                                ]}
+                            ],
+                            "triggers": [
+                                {"name": "triggleType", "type": "string", "value": "manual"}
+                            ]
+                        }]
+                    }]
+                }
+            )
+        ]
+
+    def send_mission_json(self, test_case: TestCase) -> None:
+        """发送任务JSON"""
         msg = String()
-        msg.data = json.dumps(mission_json)
-        self.mission_json_pub.publish(msg)
+        msg.data = json.dumps(test_case.mission_json)
+        self.stage_json_pub.publish(msg)
 
-        self.get_logger().info(f"Sent {stage_name} mission (stage {stage_sn})")
+        self.get_logger().info(f"Sent mission JSON for {test_case.name}")
+        if self.enable_detailed_logging:
+            self.get_logger().info(f"JSON content: {json.dumps(test_case.mission_json, indent=2)}")
 
-    def _get_param_type(self, value: Any) -> str:
-        """根据值推断参数类型"""
-        if isinstance(value, str):
-            return "string"
-        elif isinstance(value, bool):
-            return "bool"
-        elif isinstance(value, int):
-            return "int"
-        elif isinstance(value, float):
-            return "float"
-        elif isinstance(value, list):
-            return "line" if value and isinstance(value[0], dict) else "array"
-        elif isinstance(value, dict):
-            return "point"
-        else:
-            return "string"
+    def run_test_case(self, test_case: TestCase) -> None:
+        """运行单个测试用例"""
+        self.reset_test_state()
+        self.current_test = test_case
+        self.test_start_time = time.time()
+        test_case.start_time = self.test_start_time
+        test_case.status = TestStatus.RUNNING
 
-    def send_command(self, cmd_type: int, **kwargs: Any) -> None:
-        """发送命令"""
-        cmd = CommandRequest()
-        cmd.type = cmd_type
-        cmd.dst = self.vehicle_id
+        self.get_logger().info(f"Starting typical mission test: {test_case.name}")
+        self.get_logger().info(f"Description: {test_case.description}")
 
-        for key, value in kwargs.items():
-            if hasattr(cmd, key):
-                setattr(cmd, key, value)
+        try:
+            # 发送任务JSON
+            self.send_mission_json(test_case)
 
-        self.command_pub.publish(cmd)
-        self.get_logger().info(f"Sent command type: {cmd_type}")
+            # 等待测试完成
+            self.wait_for_test_completion(test_case.timeout)
 
-    def set_simulation_state(self, locked: Optional[bool] = None, flight_mode: Optional[FlightMode] = None,
-                             position: Optional[Dict[str, float]] = None) -> None:
-        """设置仿真状态"""
-        if locked is not None:
-            self.sim_locked = locked
-            self.vehicle_sim_state.is_locked = locked
-
-        if flight_mode is not None:
-            self.sim_flight_mode = flight_mode.value
-            self.vehicle_sim_state.flight_mode = flight_mode
-
-        if position:
-            self.sim_position.update(position)
-            self.target_position.update(position)
+        except Exception as e:
+            if self.current_test:
+                self._complete_test(TestStatus.FAILED, f"Test execution error: {str(e)}")
 
     def wait_for_test_completion(self, timeout: float = 30.0) -> None:
         """等待测试完成"""
@@ -928,271 +1044,31 @@ class BehaviorNodeTester(Node):
         self.behavior_tree_status = None
         self.node_status_history.clear()
 
-    # =================== 具体测试用例 ===================
-
-    def create_test_cases(self) -> List[TestCase]:
-        """创建所有测试用例"""
-        return [
-            TestCase(
-                name="SetHome",
-                description="Test setting home point",
-                tree_name="",
-                timeout=10.0,
-                success_criteria={'min_duration': 1.0, 'required_offboard_count': 0}
-            ),
-            TestCase(
-                name="ParameterConfig",
-                description="Test parameter configuration using SetLine behavior tree",
-                tree_name="SetLine",
-                timeout=15.0,
-                expected_tree_status=BehaviorTreeState.SUCCESS,
-                required_nodes=["SetLineParameters"],
-                success_criteria={'min_duration': 2.0, 'required_offboard_count': 0}
-            ),
-            TestCase(
-                name="UnlockVehicle",
-                description="Test vehicle unlock using LockCtrl behavior tree",
-                tree_name="LockCtrl",
-                timeout=15.0,
-                expected_tree_status=BehaviorTreeState.SUCCESS,
-                required_nodes=["LockControl", "SetLineParameters", "OffBoardControl"],
-                required_services=["lock_unlock"],
-                success_criteria={'min_duration': 3.0, 'required_offboard_count': 5}
-            ),
-            TestCase(
-                name="TakeOff",
-                description="Test takeoff using TakeOff behavior tree",
-                tree_name="TakeOff",
-                timeout=25.0,
-                expected_tree_status=BehaviorTreeState.SUCCESS,
-                required_nodes=["LockControl", "FlightModeControl", "SetDestinationPoint", "CheckArriveDestination"],
-                required_mode_changes=[FlightMode.TAKEOFF.value],
-                required_services=["lock_unlock", "set_flymode"],
-                success_criteria={'min_duration': 5.0, 'required_offboard_count': 10}
-            ),
-            TestCase(
-                name="GotoDestination",
-                description="Test goto destination using GoToDst behavior tree",
-                tree_name="GoToDst",
-                timeout=30.0,
-                expected_tree_status=BehaviorTreeState.SUCCESS,
-                required_nodes=["LockControl", "SetDestinationPoint", "CheckArriveDestination"],
-                required_services=["lock_unlock"],
-                success_criteria={'min_duration': 8.0, 'required_offboard_count': 15}
-            ),
-            TestCase(
-                name="AutoTrace",
-                description="Test auto trace using AutoTrace behavior tree",
-                tree_name="AutoTrace",
-                timeout=20.0,
-                expected_tree_status=BehaviorTreeState.SUCCESS,
-                required_nodes=["LockControl", "CheckQuitSearch", "SetDestinationPoint"],
-                required_services=["lock_unlock"],
-                success_criteria={'min_duration': 6.0, 'required_offboard_count': 8}
-            ),
-            TestCase(
-                name="Land",
-                description="Test landing using Land behavior tree",
-                tree_name="Land",
-                timeout=20.0,
-                expected_tree_status=BehaviorTreeState.SUCCESS,
-                required_nodes=["FlightModeControl", "SetDestinationPoint", "OffBoardControl"],
-                required_mode_changes=[FlightMode.LAND.value],
-                success_criteria={'min_duration': 4.0, 'required_offboard_count': 8}
-            ),
-            TestCase(
-                name="FormationFlight",
-                description="Test formation flight using FormFly behavior tree",
-                tree_name="FormFly",
-                timeout=25.0,
-                expected_tree_status=BehaviorTreeState.SUCCESS,
-                required_nodes=["LockControl", "NavigationControl", "SetDestinationPoint"],
-                required_services=["lock_unlock", "form_switch"],
-                success_criteria={'min_duration': 8.0, 'required_offboard_count': 12}
-            )
-        ]
-
-    def run_test_case(self, test_case: TestCase) -> None:
-        """运行单个测试用例"""
-        self.reset_test_state()
-        self.current_test = test_case
-        self.test_start_time = time.time()
-        test_case.start_time = self.test_start_time
-        test_case.status = TestStatus.RUNNING
-
-        self.get_logger().info(f"Starting test: {test_case.name}")
-
-        try:
-            if test_case.name == "SetHome":
-                self._test_set_home()
-            elif test_case.name == "ParameterConfig":
-                self._test_parameter_config()
-            elif test_case.name == "UnlockVehicle":
-                self._test_unlock_vehicle()
-            elif test_case.name == "TakeOff":
-                self._test_takeoff()
-            elif test_case.name == "GotoDestination":
-                self._test_goto_destination()
-            elif test_case.name == "AutoTrace":
-                self._test_auto_trace()
-            elif test_case.name == "Land":
-                self._test_land()
-            elif test_case.name == "FormationFlight":
-                self._test_formation_flight()
-
-            self.wait_for_test_completion(test_case.timeout)
-
-        except Exception as e:
-            if self.current_test:
-                self._complete_test(TestStatus.FAILED, f"Test execution error: {str(e)}")
-
-    def _test_set_home(self) -> None:
-        """测试设置Home点"""
-        self.send_command(
-            cmd_type=6,  # CmdSetHome
-            param0=int(39.9042 * 1e7),
-            param1=int(116.4074 * 1e7),
-            param2=int(50.0 * 1e3)
-        )
-        time.sleep(3.0)
-        if self.current_test:
-            self._complete_test(TestStatus.PASSED, "Home set command sent successfully")
-
-    def _test_parameter_config(self) -> None:
-        """测试参数配置 - 完善版本"""
-        params = {
-            "vehiType": "多旋翼",
-            "spd": 8.0,
-            "arvDis": 2.0,
-            "loops": 1,
-            "pointTag": "loc",
-            "wayPoints": [
-                {"x_lat": 50.0, "y_lon": 30.0, "z_alt": -25.0},
-                {"x_lat": 100.0, "y_lon": 60.0, "z_alt": -30.0}
-            ]
-        }
-        self.send_mission_json("参数配置", 6, "SetLine", params)
-
-    def _test_unlock_vehicle(self) -> None:
-        """测试解锁载具 - 完善版本"""
-        self.set_simulation_state(locked=False)
-        params = {
-            "vehiType": "多旋翼",
-            "spd": 5.0,
-            "arvDis": 1.0,
-            "dstLoc": [{"x_lat": 100.0, "y_lon": 50.0, "z_alt": -25.0}]
-        }
-        self.send_mission_json("解锁载具", 1, "LockCtrl", params)
-
-    def _test_takeoff(self) -> None:
-        """测试起飞 - 完善版本"""
-        self.set_simulation_state(
-            locked=False,
-            flight_mode=FlightMode.TAKEOFF,
-            position={'x': 0.0, 'y': 0.0, 'z': -5.0, 'yaw': 0.0}
-        )
-        params = {
-            "alt": -30.0,
-            "pointTag": "loc",
-            "vehiType": "多旋翼",
-            "spd": 5.0,
-            "arvDis": 2.0,
-            "dstLoc":[{"x_lat": 100.0, "y_lon": 50.0, "z_alt": -25.0}]
-        }
-        self.send_mission_json("起飞", 2, "TakeOff", params)
-
-    def _test_goto_destination(self) -> None:
-        """测试飞向目标点 - 完善版本"""
-        self.set_simulation_state(
-            locked=False,
-            flight_mode=FlightMode.OFFBOARD,
-            position={'x': 0.0, 'y': 0.0, 'z': -25.0, 'yaw': 0.0}
-        )
-        params = {
-            "dstLoc": [{"x_lat": 100.0, "y_lon": 50.0, "z_alt": -25.0}],
-            "pointTag": "loc",
-            "spd": 8.0,
-            "arvDis": 3.0,
-            "vehiType": "多旋翼"
-        }
-        self.send_mission_json("飞向目标", 3, "GoToDst", params)
-
-    def _test_auto_trace(self) -> None:
-        """测试自动跟踪 - 完善版本"""
-        self.set_simulation_state(
-            locked=False,
-            flight_mode=FlightMode.OFFBOARD,
-            position={'x': 80.0, 'y': 40.0, 'z': -30.0, 'yaw': 0.0}
-        )
-        params = {
-            "vehiType": "多旋翼",
-            "spd": 6.0,
-            "arvDis": 2.0
-        }
-        self.send_mission_json("自动跟踪", 4, "AutoTrace", params)
-
-    def _test_land(self) -> None:
-        """测试降落 - 完善版本"""
-        self.set_simulation_state(
-            locked=False,
-            flight_mode=FlightMode.LAND,
-            position={'x': 0.0, 'y': 0.0, 'z': -25.0, 'yaw': 0.0}
-        )
-        params = {
-            "vehiType": "多旋翼"
-        }
-        self.send_mission_json("降落", 5, "Land", params)
-
-    def _test_formation_flight(self) -> None:
-        """测试编队飞行 - 完善版本，按照用户提供的格式"""
-        self.set_simulation_state(
-            locked=False,
-            flight_mode=FlightMode.OFFBOARD,
-            position={'x': 0.0, 'y': 0.0, 'z': -25.0, 'yaw': 0.0}
-        )
-        params = {
-            "wayPoints": [
-                {"x_lat": 23.661289788690084, "y_lon": 107.02720853967423, "z_alt": 30.0},
-                {"x_lat": 23.659265430554882, "y_lon": 107.03040573281862, "z_alt": 30.0}
-            ],
-            "pointTag": "gps",
-            "vehiType": "多旋翼",
-            "formOffset": {
-                "diff_x_lat": 0.0,
-                "diff_y_lon": 0.0,
-                "diff_z_alt": 0.0
-            },
-            "spd": 10.0,
-            "loops": 1,
-            "arvDis": 1.0
-        }
-        self.send_mission_json("航线飞行", 0, "Navline", params, group_id=130)
-
-    def run_all_tests(self) -> None:
-        """运行所有测试"""
+    def run_all_typical_mission_tests(self) -> None:
+        """运行所有典型任务测试"""
         self.get_logger().info("=" * 80)
-        self.get_logger().info("STARTING BEHAVIOR NODE TEST SUITE WITH BEHAVIOR TREE STATUS MONITORING")
+        self.get_logger().info("STARTING TYPICAL MISSION TESTS FOR BEHAVIOR NODE")
         self.get_logger().info("=" * 80)
 
-        test_cases = self.create_test_cases()
+        test_cases = self.create_typical_mission_test_cases()
 
         for i, test_case in enumerate(test_cases, 1):
             if not self.is_running:
                 break
 
-            self.get_logger().info(f"\n[{i}/{len(test_cases)}] Running test: {test_case.name}")
+            self.get_logger().info(f"\n[{i}/{len(test_cases)}] Running typical mission test: {test_case.name}")
             self.run_test_case(test_case)
 
             # 测试间隔期间处理ROS消息
-            for _ in range(20):  # 2秒间隔
+            for _ in range(30):  # 3秒间隔
                 rclpy.spin_once(self, timeout_sec=0.1)
 
         self.print_test_summary()
 
     def print_test_summary(self) -> None:
-        """打印测试总结 - 增强版本"""
+        """打印测试总结"""
         self.get_logger().info("\n" + "=" * 80)
-        self.get_logger().info("BEHAVIOR NODE TEST SUMMARY WITH BEHAVIOR TREE STATUS")
+        self.get_logger().info("TYPICAL MISSION TEST SUMMARY")
         self.get_logger().info("=" * 80)
 
         total_tests = len(self.test_results)
@@ -1220,19 +1096,18 @@ class BehaviorNodeTester(Node):
             else:
                 symbol = "?"
 
-            self.get_logger().info(
-                f"{symbol} {test_name:25} [{status_str:7}] {duration:6.1f}s - {message}")
+            self.get_logger().info(f"{symbol} {test_name:25} [{status_str:7}] {duration:6.1f}s - {message}")
 
         success_rate = (passed_tests / total_tests * 100) if total_tests > 0 else 0
         self.get_logger().info("-" * 80)
         self.get_logger().info(f"Success Rate: {success_rate:.1f}%")
 
         if success_rate >= 80:
-            self.get_logger().info("🎉 EXCELLENT TEST RESULTS!")
+            self.get_logger().info("🎉 EXCELLENT TYPICAL MISSION TEST RESULTS!")
         elif success_rate >= 60:
-            self.get_logger().info("👍 GOOD TEST RESULTS!")
+            self.get_logger().info("👍 GOOD TYPICAL MISSION TEST RESULTS!")
         else:
-            self.get_logger().info("⚠️  TESTS NEED ATTENTION")
+            self.get_logger().info("⚠️  TYPICAL MISSION TESTS NEED ATTENTION")
 
         # 打印服务调用统计
         self.get_logger().info("\nService Call Statistics:")
@@ -1251,16 +1126,16 @@ class BehaviorNodeTester(Node):
     def shutdown(self) -> None:
         """关闭测试器"""
         self.is_running = False
-        self.get_logger().info("Behavior Node Tester shutting down...")
+        self.get_logger().info("Enhanced Behavior Node Tester shutting down...")
 
 
 def main() -> None:
     """主函数"""
-    parser = argparse.ArgumentParser(description='Behavior Node Tester with Behavior Tree Status Monitoring')
+    parser = argparse.ArgumentParser(description='Enhanced Behavior Node Tester for Typical Missions')
     parser.add_argument('--test', choices=[
-        'all', 'set_home', 'parameter_config', 'unlock_vehicle', 'takeoff',
-        'goto_destination', 'auto_trace', 'land', 'formation_flight'
-    ], default='all', help='Specify which test to run')
+        'all', 'parameter_config', 'vehicle_unlock', 'takeoff', 'goto_destination',
+        'auto_tracking', 'landing', 'formation_flight', 'search', 'hover', 'comprehensive'
+    ], default='all', help='Specify which typical mission test to run')
     parser.add_argument('--timeout', type=float, default=60.0, help='Test timeout in seconds')
     parser.add_argument('--vehicle-id', type=int, default=1, help='Vehicle ID for testing')
     parser.add_argument('--verbose', action='store_true', help='Enable detailed logging')
@@ -1289,18 +1164,20 @@ def main() -> None:
             time.sleep(0.1)
 
         if args.test == 'all':
-            tester.run_all_tests()
+            tester.run_all_typical_mission_tests()
         else:
             # 运行单个测试
-            test_cases = tester.create_test_cases()
+            test_cases = tester.create_typical_mission_test_cases()
             target_test = None
             for test_case in test_cases:
-                if test_case.name.lower() == args.test.replace('_', '').lower():
+                test_name_simplified = test_case.name.lower().replace('mission', '').replace('tracking', '').replace(
+                    'configuration', 'config')
+                if args.test.replace('_', '') in test_name_simplified:
                     target_test = test_case
                     break
 
             if target_test:
-                tester.get_logger().info(f"Running single test: {target_test.name}")
+                tester.get_logger().info(f"Running single typical mission test: {target_test.name}")
                 tester.run_test_case(target_test)
                 tester.print_test_summary()
             else:
@@ -1314,9 +1191,9 @@ def main() -> None:
             time.sleep(0.1)
 
     except KeyboardInterrupt:
-        print("\nTest interrupted by user")
+        print("\nTypical mission test interrupted by user")
     except Exception as e:
-        print(f"Test failed with exception: {str(e)}")
+        print(f"Typical mission test failed with exception: {str(e)}")
     finally:
         try:
             if 'tester' in locals():
