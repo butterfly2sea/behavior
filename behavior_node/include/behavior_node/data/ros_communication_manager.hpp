@@ -355,7 +355,7 @@ class ROSCommunicationManager {
               services::LOCK_UNLOCK);
 
       service_clients_[services::GUIDANCE_SWITCH] =
-          node_->create_client<custom_msgs::srv::CommandBool>(
+          node_->create_client<custom_msgs::srv::CommandInt>(
               services::GUIDANCE_SWITCH);
 
       service_clients_[services::FORMATION_SWITCH] =
