@@ -2,12 +2,6 @@
 <root BTCPP_format="4">
     <BehaviorTree ID="Land">
         <Sequence name="LandingSequence">
-            <!-- 1. 设置降落参数 -->
-            <SetLineParameters
-                    type="2"
-                    antiDis="3.0"
-                    vehiTypParam="vehiType"
-            />
 
             <!-- 2. 切换到降落模式 -->
             <FlightModeControl mode="5"/>

@@ -20,10 +20,14 @@ class LockControl : public StatefulActionBase<LockControl> {
   }
 
   BT::NodeStatus onStart() override;
+
   BT::NodeStatus onRunning() override;
+
   void onHalted() override;
 
  private:
   rclcpp::Client<custom_msgs::srv::CommandBool>::SharedFuture future_;
+  int target_state_{0};
+  std::chrono::milliseconds timeout_{100000};
 };
 

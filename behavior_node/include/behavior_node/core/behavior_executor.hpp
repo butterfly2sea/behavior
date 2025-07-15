@@ -229,10 +229,6 @@ class BehaviorExecutor {
     is_paused_.store(false);
     current_tree_name_.clear();
 
-    if (mission_context_) {
-      mission_context_->setCurrentTreeName("");
-    }
-
     txtLog().info(THISMODULE "Behavior executor shutdown complete");
   }
 
@@ -302,10 +298,6 @@ class BehaviorExecutor {
     is_paused_.store(false);
     current_tree_name_.clear();
     last_node_status_.clear();
-
-    if (mission_context_) {
-      mission_context_->setCurrentTreeName("");
-    }
 
     txtLog().info(THISMODULE "Behavior tree stopped");
   }
