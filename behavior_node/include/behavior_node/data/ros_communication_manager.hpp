@@ -4,7 +4,6 @@
 #include <unordered_map>
 #include <vector>
 #include <nlohmann/json.hpp>
-#include <log/Logger.hpp>
 
 #include "behavior_node/data/data_cache.hpp"
 #include "behavior_node/data/mission_context.hpp"
@@ -76,9 +75,6 @@ class ROSCommunicationManager {
   std::shared_ptr<MissionContext> mission_context_;
   std::shared_ptr<behavior_core::MessageQueue> message_queue_;
 
-  // 任务名到行为树名的映射
-  std::unordered_map<std::string, std::string> task_to_tree_mapping_;
-
   rclcpp::Logger logger_;
 
  public:
@@ -93,7 +89,6 @@ class ROSCommunicationManager {
         message_queue_(std::move(msg_queue)),
         logger_(node_->get_logger()) {
 
-    initializeTaskMapping();
     txtLog().info(THISMODULE "Created ROS communication manager");
   }
 
@@ -236,9 +231,7 @@ class ROSCommunicationManager {
   // ================================ 行为树控制接口 ================================
   void requestTreeLoad(const std::string &tree_name) {
     if (message_queue_) {
-      auto msg = std::make_shared<behavior_core::TreeMessage>();
-      msg->type = behavior_core::MessageType::TREE_EXECUTION;
-      msg->tree_name = tree_name;
+      behavior_core::BehaviorMessage msg(behavior_core::BehaviorCommand::LOAD_TREE, tree_name, {});
       message_queue_->push(msg);
       txtLog().info(THISMODULE "Requested to load tree: %s", tree_name.c_str());
     }
@@ -246,29 +239,13 @@ class ROSCommunicationManager {
 
   void requestTreeStop() {
     if (message_queue_) {
-      auto msg = std::make_shared<behavior_core::ControlMessage>();
-      msg->type = behavior_core::MessageType::COMMAND;
-      msg->command_type = behavior_core::CommandType::STOP_TREE;
+      behavior_core::BehaviorMessage msg(behavior_core::BehaviorCommand::STOP_TREE, "", {});
       message_queue_->push(msg);
       txtLog().info(THISMODULE "Requested to stop tree");
     }
   }
 
  private:
-  // ================================ 任务映射初始化 ================================
-  void initializeTaskMapping() {
-    task_to_tree_mapping_ = {
-        {"TakeOff", "TakeOff"},
-        {"Land", "Land"},
-        {"Navline", "Navline"},
-        {"SrchViaLine", "SrchViaLine"},
-        {"Attack", "Attack"},
-        {"AutoTrace", "AutoTrace"},
-        {"Loiter", "Loiter"},
-        {"RtlDirect", "RtlDirect"}
-    };
-  }
-
   // ================================ 发布器设置 ================================
   void setupPublishers() {
     using namespace ros_interface;
@@ -338,6 +315,16 @@ class ROSCommunicationManager {
       publishers_[topics::SET_LOOPS] =
           node_->create_publisher<std_msgs::msg::Int32>(
               topics::SET_LOOPS, rclcpp::QoS(1));
+
+      // 编组设置发布
+      publishers_[topics::SET_GROUP] =
+          node_->create_publisher<std_msgs::msg::UInt8>(
+              topics::SET_GROUP,rclcpp::QoS(1));
+
+      // 编队队形发布
+      publishers_[topics::SET_FORMATION] =
+          node_->create_publisher<custom_msgs::msg::ParamShort>(
+              topics::SET_FORMATION, rclcpp::QoS(1));
 
       // 手动控制发布
       publishers_[topics::MANUAL_CONTROL] =
@@ -418,7 +405,11 @@ class ROSCommunicationManager {
               topics::WAYPOINT,
               rclcpp::SensorDataQoS(),
               [this](custom_msgs::msg::DisTarget::SharedPtr msg) {
-                handleWaypointDistance(msg);
+                if (auto id = mission_context_->getWpId();
+                    (id == 0xFFFFFFFF || msg->id != id) && mission_context_->getArrivalDistance() > msg->dis / 1e3) {
+                  mission_context_->setWpId(msg->id);
+                  mission_context_->incLoopIndex();
+                }
               }
           )
       );
@@ -483,139 +474,234 @@ class ROSCommunicationManager {
   // ================================ 消息处理方法 ================================
   void handleMissionJSON(const std_msgs::msg::String::SharedPtr msg) {
     try {
-      nlohmann::json json_data = nlohmann::json::parse(msg->data);
-      behavior_core::TaskMission mission = parseTaskMission(json_data);
+      nlohmann::json mission_json = nlohmann::json::parse(msg->data);
 
-      txtLog().info(THISMODULE "Received JSON mission with %zu stages", mission.stages.size());
-
-      // 处理任务
-      for (const auto& stage : mission.stages) {
-        processTaskStage(stage);
+      if (!mission_json.contains("stage")) {
+        txtLog().warnning(THISMODULE "Mission JSON missing 'stage' field");
+        return;
       }
 
-    } catch (const std::exception& e) {
-      txtLog().error(THISMODULE "Failed to process JSON message: %s", e.what());
+      auto stage_info = mission_json["stage"];
+      if (!stage_info.is_array() || stage_info.empty()) {
+        txtLog().warnning(THISMODULE "Invalid stage info format");
+        return;
+      }
 
-      // 发送错误响应
-      custom_msgs::msg::CommandResponse response;
-      response.rslt = "failure"; // 失败
-      response.id = data_cache_->getVehicleId();  // 发送飞机id
-      publishCommandResponse(response);
-    }
-  }
+      // 处理每个阶段
+      for (const auto &stage : stage_info) {
+        if (!validateStage(stage)) {
+          continue;
+        }
 
-  // 处理控制指令 - 整合了JsonMessageProcessor的控制指令处理
-  void handleCommand(const custom_msgs::msg::CommandRequest::SharedPtr msg) {
-    try {
-      txtLog().info(THISMODULE "Received command: type=%d, dst=%d", msg->type, msg->dst);
+        if (std::string cmd = stage["cmd"].get<std::string>();cmd == "start") {
+          auto actions = stage["actions"];
+          if (!actions.is_array() || actions.empty()) return;
 
-      auto message = std::make_shared<behavior_core::ControlMessage>();
-      message->type = behavior_core::MessageType::COMMAND;
-      message->command_type = static_cast<behavior_core::CommandType>(msg->type);
-      message->vehicle_id = msg->dst;
-      message->data = *msg;
+          int stage_sn = stage["sn"].get<int>();
 
-      message_queue_->push(message);
+          for (const auto &action : actions) {
+            if (!validateAction(action)) continue;
+            if (action["id"].get<int>() == data_cache_->getVehicleId()) {
+              processSelfMission(action, stage_sn, actions);
+              break;
+            }
+          }
+        }
+      }
 
-      // 发送成功响应
-      custom_msgs::msg::CommandResponse response;
-      response.rslt = "success"; // 成功
-      response.type = msg->type;
-      response.src = msg->dst;
-      publishCommandResponse(response);
-
-    } catch (const std::exception& e) {
-      txtLog().error(THISMODULE "Failed to process command message: %s", e.what());
-
-      // 发送错误响应
-      custom_msgs::msg::CommandResponse response;
-      response.rslt = "failure"; // 失败
-      response.type = msg->type;
-      response.src = msg->dst;
-      publishCommandResponse(response);
+    } catch (const nlohmann::json::exception &e) {
+      txtLog().error(THISMODULE "JSON parsing error: %s", e.what());
+    } catch (const std::exception &e) {
+      txtLog().error(THISMODULE "Error handling mission JSON: %s", e.what());
     }
   }
 
   void handleAttackDesignate(const custom_msgs::msg::ObjectAttackDesignate::SharedPtr msg) {
-    try {
-      auto message = std::make_shared<behavior_core::AttackMessage>();
-      message->type = behavior_core::MessageType::ATTACK_DESIGNATE;
-      message->target_id = msg->ids[0];
-      message->attack_type = msg->type;
-
-      message_queue_->push(message);
-      txtLog().info(THISMODULE "Processed attack designate: target_id=%d", msg->ids[0]);
-
-    } catch (const std::exception& e) {
-      txtLog().error(THISMODULE "Failed to process attack designate: %s", e.what());
-    }
-  }
-
-  void handleWaypointDistance(const custom_msgs::msg::DisTarget::SharedPtr msg) {
-    try {
-      if (auto id = mission_context_->getWpId();
-          (id == 0xFFFFFFFF || msg->id != id) &&
-              mission_context_->getArrivalDistance() > msg->dis / 1e3) {
-
-        mission_context_->setWpId(msg->id);
-        mission_context_->incLoopIndex();
-
-        txtLog().debug(THISMODULE "Updated waypoint: id=%d, distance=%.2f",
-                       msg->id, msg->dis / 1e3);
+    if (!data_cache_ || !mission_context_) return;
+    auto vehicle_id = data_cache_->getVehicleId();
+    bool is_attack = false;
+    for (auto id : msg.get()->ids) {
+      if (id == vehicle_id) {
+        is_attack = true;
+        break;
       }
-    } catch (const std::exception& e) {
-      txtLog().error(THISMODULE "Failed to process waypoint distance: %s", e.what());
     }
+    //它机跟踪打击任务(除去终止任务)时 重新规划分组及分组偏移
+    if (!is_attack) {
+      mission_context_->setExcludedIds(msg.get()->ids);
+      return;
+    }
+    mission_context_->setAttackObjLoc(msg.get()->objs);
+    mission_context_->setTraceAttackType(msg.get()->type);
   }
 
-  // ================================ JSON解析方法 ================================
+  void handleCommand(custom_msgs::msg::CommandRequest::SharedPtr msg) {
+    if (!data_cache_ || !mission_context_) return;
 
-  behavior_core::TaskMission parseTaskMission(const nlohmann::json& json_data) {
-    behavior_core::TaskMission mission;
+    auto vehicle_id = data_cache_->getVehicleId();
 
-    if (!json_data.contains("stage") || !json_data["stage"].is_array()) {
-      throw std::runtime_error("Invalid JSON format: missing stage array");
+    if (msg->type == CmdType::HeartBeat) return;
+
+    if (msg->dst != vehicle_id && (msg->type == CmdType::Takeoff || msg->type == CmdType::Land ||
+        msg->type == CmdType::Loiter || msg->type == CmdType::DoTask ||
+        msg->type == CmdType::Joystick || msg->type == CmdType::DesignAttackObj)) {
+      mission_context_->addExcludedId(msg->dst);
     }
 
-    for (const auto& stage_json : json_data["stage"]) {
-      behavior_core::TaskStage stage;
-      stage.name = stage_json.value("name", "");
-      stage.sn = stage_json.value("sn", 0);
-      stage.cmd = stage_json.value("cmd", "start");
+    processCommand(msg);
+  }
 
-      if (stage_json.contains("actions") && stage_json["actions"].is_array()) {
-        for (const auto& action_json : stage_json["actions"]) {
-          behavior_core::TaskAction action;
-          action.groupid = action_json.value("groupid", 1);
-          action.id = action_json.value("id", 0);
-          action.name = action_json.value("name", "");
+  static bool validateStage(const nlohmann::json &stage) {
+    return stage.contains("name") && stage.contains("sn") &&
+        stage.contains("cmd") && stage.contains("actions");
+  }
 
-          // 解析参数
-          if (action_json.contains("params") && action_json["params"].is_array()) {
-            for (const auto& param : action_json["params"]) {
-              std::string param_name = param.value("name", "");
-              action.params[param_name] = param["value"];
-            }
-          }
+  bool validateAction(const nlohmann::json &action) {
+    return action.contains("name") && action.contains("id") &&
+        action.contains("groupid");
+  }
 
-          // 解析触发器
-          if (action_json.contains("triggers") && action_json["triggers"].is_array()) {
-            for (const auto& trigger : action_json["triggers"]) {
-              std::string trigger_name = trigger.value("name", "");
-              action.triggers[trigger_name] = trigger["value"];
-            }
-          }
+  void processSelfMission(const nlohmann::json &action, int stage_sn,
+                          const nlohmann::json &all_actions) {
+    if (!mission_context_) return;
 
-          stage.actions.push_back(action);
+    std::string action_name = action["name"].get<std::string>();
+    int group_id = action["groupid"].get<int>();
+
+    std::vector<uint8_t> group_members;
+    for (const auto &act : all_actions) {
+      if (act["groupid"].get<int>() == group_id) {
+        group_members.push_back(act["id"].get<int>());
+      }
+    }
+
+    mission_context_->setAction(action_name);
+    mission_context_->setStage(stage_sn);
+    mission_context_->setGroupId(group_id);
+    mission_context_->setGroupMembers(group_members);
+
+    if (action.contains("params") && action["params"].is_array()) {
+      for (const auto &param : action["params"]) {
+        if (param.contains("name") && param.contains("value")) {
+          mission_context_->setParameter(
+              param["name"].get<std::string>(), param["value"]);
         }
       }
-
-      mission.stages.push_back(stage);
     }
 
-    return mission;
+    if (action.contains("triggers") && action["triggers"].is_array()) {
+      for (const auto &trigger : action["triggers"]) {
+        if (trigger.contains("name") && trigger.contains("value")) {
+          mission_context_->setTrigger(
+              trigger["name"].get<std::string>(), trigger["value"]);
+        }
+      }
+    }
+
+    publishTaskStatus(stage_sn, StatusStage::StsNoStart);
+
+    std::string tree_name = action_name;
+    requestTreeLoad(tree_name);
+
+    txtLog().info(THISMODULE "Started mission: %s, Stage: %d",
+                  action_name.c_str(), stage_sn);
+  }
+    void processCommand(custom_msgs::msg::CommandRequest::SharedPtr msg) {
+    custom_msgs::msg::CommandResponse response;
+    response.id = data_cache_->getVehicleId();
+    response.src = CtrlType::Cmd;
+    response.type = msg->type;
+    response.status = CmdStatus::Success;
+
+    switch (msg->type) {
+      case CmdType::SetVideo:handleSetVideoCommand(msg, response);
+        break;
+      case CmdType::CmdSetHome:handleSetHomeCommand(msg, response);
+        break;
+      case CmdType::Land:mission_context_->setAction("Land");
+        break;
+      default:txtLog().warnning(THISMODULE "Unhandled command type: %d", msg->type);
+        break;
+    }
+
+    publish(ros_interface::topics::OUTER_RESPONSE, response);
+  }
+void handleSetVideoCommand(custom_msgs::msg::CommandRequest::SharedPtr msg,
+                             custom_msgs::msg::CommandResponse &response) {
+    custom_msgs::msg::ImageDistribute img_dis;
+    img_dis.type = msg->param0;
+    img_dis.rcvip = msg->param1;
+    img_dis.rcvport = msg->param2;
+    img_dis.resx = msg->param3;
+    img_dis.resy = msg->param4;
+    img_dis.fps = msg->fparam5;
+
+    publish(ros_interface::topics::INFO_IMAGE_DISTRIBUTE, img_dis);
+
+    if (msg->param0 == 2 && isServiceReady(ros_interface::services::INFO_RTSP_URL)) {
+      auto request = std::make_shared<custom_msgs::srv::CommandString::Request>();
+      auto future = callService<custom_msgs::srv::CommandString>(
+          ros_interface::services::INFO_RTSP_URL, request);
+
+      if (rclcpp::spin_until_future_complete(node_, future) ==
+          rclcpp::FutureReturnCode::SUCCESS) {
+        response.rslt = future.get()->rslt;
+      }
+    }
   }
 
+  void handleSetHomeCommand(custom_msgs::msg::CommandRequest::SharedPtr msg,
+                            custom_msgs::msg::CommandResponse &response) {
+    if (!data_cache_ || !mission_context_) return;
+
+    auto vehicle_state = data_cache_->getVehicleState();
+    if (vehicle_state && vehicle_state->lock == LockState::UNLOCK) {
+      txtLog().warnning(THISMODULE "Vehicle is locked, cannot set home");
+      response.status = CmdStatus::Failed;
+      response.rslt = "Vehicle is locked, cannot set home";
+      return;
+    }
+
+    geometry_msgs::msg::Point home_point;
+    home_point.x = msg->param1 / 1e7;
+    home_point.y = msg->param2 / 1e7;
+    home_point.z = msg->param3 / 1e3;
+
+    publish(ros_interface::topics::SET_COORD, home_point);
+    mission_context_->setHomePoint(home_point);
+
+    txtLog().info(THISMODULE "Set home point: (%.6f, %.6f, %.2f)",
+                  home_point.x, home_point.y, home_point.z);
+  }
+
+  void updateExcludedGroupMembers(const std::set<uint8_t> &excluded_ids) {
+    if (!mission_context_) return;
+
+    auto current_members = mission_context_->getGroupMembers();
+    std::vector<uint8_t> updated_members;
+
+    for (uint8_t member_id : current_members) {
+      if (excluded_ids.find(member_id) == excluded_ids.end()) {
+        updated_members.push_back(member_id);
+      }
+    }
+
+    if (updated_members.size() != current_members.size()) {
+      mission_context_->setExcludedIds(excluded_ids);
+      txtLog().info(THISMODULE "Updated excluded group members");
+    }
+  }
+
+  void publishTaskStatus(int stage_sn, StatusStage status) {
+    if (!data_cache_) return;
+
+    custom_msgs::msg::StatusTask status_msg;
+    status_msg.stage = stage_sn;
+    status_msg.id = data_cache_->getVehicleId();
+    status_msg.status = static_cast<int>(status);
+
+    publish(ros_interface::topics::OUTER_STATUS_TASK, status_msg);
+  }
   void processTaskStage(const behavior_core::TaskStage& stage) {
     try {
       // 更新任务上下文

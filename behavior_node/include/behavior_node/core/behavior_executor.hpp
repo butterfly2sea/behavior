@@ -4,10 +4,10 @@
 #include <rclcpp/rclcpp.hpp>
 #include <atomic>
 #include <chrono>
-#include <unordered_map>
 #include <log/Logger.hpp>
 
 #include "behavior_node/core/types.hpp"
+#include "behavior_node/core/message_queue.hpp"
 #include "behavior_node/data/data_cache.hpp"
 #include "behavior_node/data/mission_context.hpp"
 #include "behavior_node/base_nodes.hpp"

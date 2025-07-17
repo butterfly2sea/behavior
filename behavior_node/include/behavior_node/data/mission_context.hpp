@@ -29,10 +29,6 @@ class MissionContext {
   std::atomic<uint> loop_index_{0}; // 当前循环索引
   std::atomic<uint32_t> wp_id_{0xFFFFFFFF}; // 航线当前航点id
   std::atomic<SetContentType> set_type_{SetContentType::TWO_SWITCH};
-  // 任务统计
-  std::atomic<size_t> total_tasks_executed_{0};
-  std::atomic<size_t> successful_tasks_{0};
-  std::atomic<size_t> failed_tasks_{0};
 
   std::atomic<behavior_core::SystemState> system_state_{behavior_core::SystemState::INITIALIZING};
 
@@ -350,78 +346,6 @@ class MissionContext {
   custom_msgs::msg::ObjectLocation getAttackObjLoc() const {
     std::lock_guard<std::mutex> lock(data_mutex_);
     return attack_obj_loc_;
-  }
-
-  // ================================ 任务统计管理 ================================
-
-  void incrementTasksExecuted() {
-    total_tasks_executed_.fetch_add(1);
-  }
-
-  void incrementSuccessfulTasks() {
-    successful_tasks_.fetch_add(1);
-  }
-
-  void incrementFailedTasks() {
-    failed_tasks_.fetch_add(1);
-  }
-
-  size_t getTotalTasksExecuted() const {
-    return total_tasks_executed_.load();
-  }
-
-  size_t getSuccessfulTasks() const {
-    return successful_tasks_.load();
-  }
-
-  size_t getFailedTasks() const {
-    return failed_tasks_.load();
-  }
-
-  double getSuccessRate() const {
-    size_t total = total_tasks_executed_.load();
-    if (total == 0) return 0.0;
-    return static_cast<double>(successful_tasks_.load()) / total;
-  }
-
-  // ================================ 状态消息生成 ================================
-
-  custom_msgs::msg::StatusTask generateStatusMessage() const {
-    custom_msgs::msg::StatusTask status_msg;
-
-    // 基本信息
-    {
-      std::lock_guard<std::mutex> lock(data_mutex_);
-      status_msg.stage = stage_sn_.load();
-    }
-
-    // 根据系统状态设置任务状态
-    switch (system_state_.load()) {
-      case behavior_core::SystemState::INITIALIZING:
-        status_msg.status = static_cast<int>(behavior_core::TaskStatus::NOT_READY);
-        break;
-      case behavior_core::SystemState::RUNNING:
-        status_msg.status = static_cast<int>(behavior_core::TaskStatus::ONGOING);
-        break;
-      case behavior_core::SystemState::PAUSED:
-        status_msg.status = static_cast<int>(behavior_core::TaskStatus::ONGOING);
-        break;
-      case behavior_core::SystemState::ERROR:
-        status_msg.status = static_cast<int>(behavior_core::TaskStatus::FAILED);
-        break;
-      case behavior_core::SystemState::SHUTTING_DOWN:
-        status_msg.status = static_cast<int>(behavior_core::TaskStatus::COMPLETE);
-        break;
-      default:
-        status_msg.status = static_cast<int>(behavior_core::TaskStatus::NO_START);
-        break;
-    }
-
-    // 导航信息
-    status_msg.dstwaypt = static_cast<int32_t>(wp_id_.load());
-    status_msg.diswaypt = 0.0; // 这个值应该由导航系统更新
-
-    return status_msg;
   }
 
   // 系统状态管理
