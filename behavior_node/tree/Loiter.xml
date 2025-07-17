@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4">
+    <!-- 悬停-开始 -->
+    <BehaviorTree ID="Loiter-start">
+        <Sequence name="LoiterSequence">
+            <!-- 进入OFFBOARD模式 -->
+            <FlightModeControl mode="OFFBOARD" />
+
+            <!-- 执行悬停 -->
+            <LoiterAction duration="{duration}" />
+        </Sequence>
+    </BehaviorTree>
+
+    <!-- 悬停-暂停 -->
+    <BehaviorTree ID="Loiter-pause">
+        <Sequence name="LoiterPause">
+            <LoiterAction duration="999999" />
+        </Sequence>
+    </BehaviorTree>
+
+    <!-- 悬停-继续 -->
+    <BehaviorTree ID="Loiter-continue">
+        <Sequence name="LoiterContinue">
+            <LoiterAction duration="{duration}" />
+        </Sequence>
+    </BehaviorTree>
+
+    <!-- 悬停-停止 -->
+    <BehaviorTree ID="Loiter-stop">
+        <Sequence name="LoiterStop">
+            <LoiterAction duration="5" />
+        </Sequence>
+    </BehaviorTree>
+</root>

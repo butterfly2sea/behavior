@@ -14,7 +14,6 @@ constexpr const char *ATTACK_DESIGNATE = "outer/set/attack_object_designate"; //
 constexpr const char *VEHICLE_STATE = "inner/information/simple_vehicle"; // 精简飞控消息
 constexpr const char *WAYPOINT = "inner/information/way_point"; // 当前航点及距离航点距离
 constexpr const char *OBJECT_DETECTION = "inner/information/object_computation"; // 目标位置消息
-constexpr const char *JOYSTICK = "inner/control/joystick"; // 遥控器消息（待补充进文档）
 
 // 发布输出
 constexpr const char *INFO_IMAGE_DISTRIBUTE = "inner/set/image_distribute"; // 视频分发设置

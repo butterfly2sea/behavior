@@ -15,10 +15,9 @@ if (CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif ()
 
-# find dependencies
+# 查找依赖项
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(rclcpp_action REQUIRED)
 find_package(behaviortree_cpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
@@ -46,7 +45,6 @@ target_include_directories(behavior_node PUBLIC
 
 ament_target_dependencies(behavior_node
     rclcpp
-    rclcpp_action
     behaviortree_cpp
     std_msgs
     sensor_msgs
@@ -62,10 +60,21 @@ install(TARGETS behavior_node
     DESTINATION lib/${PROJECT_NAME})
 
 # 安装行为树文件
-install(DIRECTORY trees/
-    DESTINATION lib/${PROJECT_NAME}/trees
+install(DIRECTORY tree/
+    DESTINATION share/${PROJECT_NAME}/trees
     FILES_MATCHING PATTERN "*.xml"
 )
+
+# 安装配置文件
+install(DIRECTORY config/
+    DESTINATION share/${PROJECT_NAME}/config
+    FILES_MATCHING PATTERN "*.yaml"
+)
+
+# 安装启动文件
+install(DIRECTORY launch/
+    DESTINATION share/${PROJECT_NAME}/launch
+    FILES_MATCHING PATTERN "*.py")
 
 if (BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

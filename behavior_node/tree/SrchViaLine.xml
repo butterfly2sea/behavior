@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4">
+    <!-- 沿线搜索-开始 -->
+    <BehaviorTree ID="SrchViaLine-start">
+        <Sequence name="SearchSequence">
+            <!-- 设置搜索参数 -->
+            <SetSearchParameters
+                    areaPointsParam="areaPoints"
+                    spdParam="spd"
+                    tgtClsParam="tgtCls"
+                    ptTypParam="pointTag" />
+
+            <!-- 设置编队偏移 -->
+            <SetFormationOffset offsetParam="formOffset" />
+
+            <!-- 解锁并进入OFFBOARD模式 -->
+            <LockControl state="1" />
+            <FlightModeControl mode="OFFBOARD" />
+
+            <!-- 执行搜索任务 -->
+            <ReactiveFallback name="SearchLoop">
+                <!-- 检查是否退出搜索 -->
+                <CheckQuitSearch />
+
+                <!-- 继续搜索 -->
+                <KeepRunningUntilFailure>
+                    <SearchViaLineAction
+                            areaPoints="{areaPoints}"
+                            spd="{spd}"
+                            tgtCls="{tgtCls}" />
+                </KeepRunningUntilFailure>
+            </ReactiveFallback>
+        </Sequence>
+    </BehaviorTree>
+
+    <!-- 沿线搜索-暂停 -->
+    <BehaviorTree ID="SrchViaLine-pause">
+        <Sequence name="SearchPause">
+            <LoiterAction duration="999999" />
+        </Sequence>
+    </BehaviorTree>
+
+    <!-- 沿线搜索-继续 -->
+    <BehaviorTree ID="SrchViaLine-continue">
+        <Sequence name="SearchContinue">
+            <FlightModeControl mode="OFFBOARD" />
+            <ReactiveFallback name="SearchLoop">
+                <CheckQuitSearch />
+                <KeepRunningUntilFailure>
+                    <SearchViaLineAction
+                            areaPoints="{areaPoints}"
+                            spd="{spd}"
+                            tgtCls="{tgtCls}" />
+                </KeepRunningUntilFailure>
+            </ReactiveFallback>
+        </Sequence>
+    </BehaviorTree>
+
+    <!-- 沿线搜索-停止 -->
+    <BehaviorTree ID="SrchViaLine-stop">
+        <Sequence name="SearchStop">
+            <LoiterAction duration="5" />
+        </Sequence>
+    </BehaviorTree>
+</root>

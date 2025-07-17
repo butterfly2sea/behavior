@@ -1,33 +1,34 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <root BTCPP_format="4">
-    <BehaviorTree ID="Land">
-        <Sequence name="LandingSequence">
+    <!-- 降落-开始 -->
+    <BehaviorTree ID="Land-start">
+        <Sequence name="LandSequence">
+            <!-- 执行降落 -->
+            <LandAction />
 
-            <!-- 2. 切换到降落模式 -->
-            <FlightModeControl mode="5"/>
+            <!-- 降落完成后锁定飞机 -->
+            <LockControl state="0" />
+        </Sequence>
+    </BehaviorTree>
 
-            <!-- 3. 设置降落点 -->
-            <SetDestinationPoint
-                    step="0"
-                    obsHgh="-5.0"
-                    target="{land_ctrl}"
-            />
+    <!-- 降落-暂停 -->
+    <BehaviorTree ID="Land-pause">
+        <Sequence name="LandPause">
+            <LoiterAction duration="999999" />
+        </Sequence>
+    </BehaviorTree>
 
-            <!-- 4. 执行降落控制循环 - 直到到达地面 -->
-            <ReactiveFallback name="LandingLoop">
-                <!-- 检查是否已经降落到地面 -->
-                <CheckArriveDestination
-                        target="{land_ctrl}"
-                        arvdis="3.0"
-                        onlyz="true"
-                />
-                <!-- 持续降落控制 -->
-                <KeepRunningUntilFailure>
-                    <Delay delay_msec="200">
-                        <OffBoardControl ctrl="{land_ctrl}" yaw="0.0"/>
-                    </Delay>
-                </KeepRunningUntilFailure>
-            </ReactiveFallback>
+    <!-- 降落-继续 -->
+    <BehaviorTree ID="Land-continue">
+        <Sequence name="LandContinue">
+            <LandAction />
+        </Sequence>
+    </BehaviorTree>
+
+    <!-- 降落-停止 -->
+    <BehaviorTree ID="Land-stop">
+        <Sequence name="LandStop">
+            <LoiterAction duration="5" />
         </Sequence>
     </BehaviorTree>
 </root>

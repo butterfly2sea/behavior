@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4">
+    <!-- 目标攻击-开始 -->
+    <BehaviorTree ID="Attack-start">
+        <Sequence name="AttackSequence">
+            <!-- 设置攻击目标 -->
+            <SetAttackTarget
+                    tgtIdParam="tgtId"
+                    srcIdParam="srcId"
+                    dstIdParam="dstId" />
+
+            <!-- 解锁并进入OFFBOARD模式 -->
+            <LockControl state="1" />
+            <FlightModeControl mode="OFFBOARD" />
+
+            <!-- 执行攻击 -->
+            <AttackAction
+                    tgtId="{tgtId}"
+                    srcId="{srcId}"
+                    dstId="{dstId}" />
+        </Sequence>
+    </BehaviorTree>
+
+    <!-- 目标攻击-暂停 -->
+    <BehaviorTree ID="Attack-pause">
+        <Sequence name="AttackPause">
+            <LoiterAction duration="999999" />
+        </Sequence>
+    </BehaviorTree>
+
+    <!-- 目标攻击-继续 -->
+    <BehaviorTree ID="Attack-continue">
+        <Sequence name="AttackContinue">
+            <AttackAction
+                    tgtId="{tgtId}"
+                    srcId="{srcId}"
+                    dstId="{dstId}" />
+        </Sequence>
+    </BehaviorTree>
+
+    <!-- 目标攻击-停止 -->
+    <BehaviorTree ID="Attack-stop">
+        <Sequence name="AttackStop">
+            <LoiterAction duration="5" />
+        </Sequence>
+    </BehaviorTree>
+</root>

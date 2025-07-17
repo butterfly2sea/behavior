@@ -4,14 +4,15 @@
 #include <rclcpp/rclcpp.hpp>
 #include <atomic>
 #include <chrono>
+#include <unordered_map>
 #include <log/Logger.hpp>
 
 #include "behavior_node/core/types.hpp"
-#include "behavior_node/core/message_queue.hpp"
 #include "behavior_node/data/data_cache.hpp"
 #include "behavior_node/data/mission_context.hpp"
 #include "behavior_node/base_nodes.hpp"
 
+// 行为树节点包含
 #include "behavior_node/action/flight_mode_control.hpp"
 #include "behavior_node/action/joy_control.hpp"
 #include "behavior_node/action/lock_control.hpp"
@@ -24,12 +25,43 @@
 #include "behavior_node/condition/check_quit_search.hpp"
 #include "behavior_node/condition/check_quit_line_loop.hpp"
 
-// 添加状态消息头文件
-#include <custom_msgs/msg/behavior_tree_status.hpp>
-#include <custom_msgs/msg/behavior_node_status.hpp>
+// 任务节点包含
+#include "behavior_node/action/take_off_action.hpp"
+#include "behavior_node/action/land_action.hpp"
+#include "behavior_node/action/loiter_action.hpp"
+#include "behavior_node/action/rtl_direct_action.hpp"
+#include "behavior_node/action/navline_action.hpp"
+#include "behavior_node/action/attack_action.hpp"
 
 // 前向声明
 class ROSCommunicationManager;
+
+namespace behavior_core {
+
+// 行为树状态枚举
+enum class TreeState {
+  IDLE,           // 空闲状态
+  LOADING,        // 加载中
+  RUNNING,        // 运行中
+  PAUSED,         // 暂停
+  COMPLETED,      // 完成
+  FAILED,         // 失败
+  STOPPING        // 停止中
+};
+
+// 行为树执行上下文
+struct TreeExecutionContext {
+  std::string tree_name;
+  std::string task_name;
+  TreeState state{TreeState::IDLE};
+  std::chrono::steady_clock::time_point start_time;
+  std::chrono::steady_clock::time_point last_tick_time;
+  size_t tick_count{0};
+  BT::NodeStatus last_status{BT::NodeStatus::IDLE};
+  std::unordered_map<std::string, nlohmann::json> parameters;
+};
+
+} // namespace behavior_core
 
 class BehaviorExecutor {
  private:
@@ -37,47 +69,33 @@ class BehaviorExecutor {
   std::unique_ptr<BT::Tree> current_tree_;
   std::shared_ptr<BT::Blackboard> blackboard_;
 
-  // ROS相关
+  // 执行上下文
+  behavior_core::TreeExecutionContext execution_context_;
+
+  // 基础组件
   rclcpp::Node::SharedPtr node_;
-  rclcpp::TimerBase::SharedPtr tick_timer_;
-  rclcpp::TimerBase::SharedPtr message_process_timer_;
-
-  std::shared_ptr<behavior_core::MessageQueue> message_queue_;
-
-  // 状态管理
-  std::atomic<bool> is_running_{false};
-  std::atomic<bool> is_paused_{false};
-  std::atomic<bool> is_initialized_{false};
-  std::atomic<size_t> tick_count_{0};
-
-  std::string current_tree_name_;
   std::string tree_directory_;
-
-  std::chrono::steady_clock::time_point last_tick_time_;
-  std::chrono::milliseconds tick_interval_{50}; // 20Hz
-  std::chrono::milliseconds message_check_interval_{10}; // 100Hz
 
   // 依赖项
   std::shared_ptr<ROSCommunicationManager> ros_comm_;
   std::shared_ptr<Cache> data_cache_;
   std::shared_ptr<MissionContext> mission_context_;
 
-  // 状态监控
-  rclcpp::Publisher<custom_msgs::msg::BehaviorTreeStatus>::SharedPtr status_publisher_;
-  std::map<std::string, BT::NodeStatus> last_node_status_;
-  BT::NodeStatus last_tree_status_{BT::NodeStatus::IDLE};
+  // 状态管理
+  std::atomic<bool> is_initialized_{false};
+  std::chrono::milliseconds tick_interval_{50}; // 20Hz
+
+  // 健康状态监控
+  std::atomic<bool> is_healthy_{true};
+  std::chrono::steady_clock::time_point last_healthy_check_;
+  std::chrono::milliseconds health_check_interval_{1000};
 
  public:
-  BehaviorExecutor(
-      rclcpp::Node::SharedPtr node,
-      std::shared_ptr<behavior_core::MessageQueue> msg_queue,
-      std::string tree_dir = "trees")
-      : node_(std::move(node)),
-        message_queue_(std::move(msg_queue)),
-        tree_directory_(std::move(tree_dir)) {
+  BehaviorExecutor(rclcpp::Node::SharedPtr node, std::string tree_dir = "trees")
+      : node_(std::move(node)), tree_directory_(std::move(tree_dir)) {
 
     blackboard_ = BT::Blackboard::create();
-    last_tick_time_ = std::chrono::steady_clock::now();
+    last_healthy_check_ = std::chrono::steady_clock::now();
 
     txtLog().info(THISMODULE "Created behavior executor");
   }
@@ -86,6 +104,7 @@ class BehaviorExecutor {
     shutdown();
   }
 
+  // ================================ 初始化和配置 ================================
   void setDependencies(std::shared_ptr<ROSCommunicationManager> ros_comm,
                        std::shared_ptr<Cache> data_cache,
                        std::shared_ptr<MissionContext> mission_context) {
@@ -94,277 +113,179 @@ class BehaviorExecutor {
     mission_context_ = std::move(mission_context);
   }
 
-  void registerNodes() {
-    if (!ros_comm_ || !data_cache_ || !mission_context_) {
-      txtLog().error(THISMODULE "Dependencies not set before registering nodes");
-      return;
-    }
-
-    NodeDependencies deps{ros_comm_, data_cache_, mission_context_};
-
-    // 在这里注册具体的行为树节点
-    // 飞行模式控制节点
-    factory_.registerBuilder<FlightModeControl>(
-        "FlightModeControl",
-        [deps](const std::string &name, const BT::NodeConfiguration &config) {
-          return std::make_unique<FlightModeControl>(name, config, deps);
-        });
-
-    // joystick控制节点
-    factory_.registerBuilder<JoyControl>(
-        "JoyControl",
-        [deps](const std::string &name, const BT::NodeConfiguration &config) {
-          return std::make_unique<JoyControl>(name, config, deps);
-        });
-
-    // 锁定控制节点
-    factory_.registerBuilder<LockControl>(
-        "LockControl",
-        [deps](const std::string &name, const BT::NodeConfiguration &config) {
-          return std::make_unique<LockControl>(name, config, deps);
-        });
-
-    // 导航控制节点
-    factory_.registerBuilder<NavigationControl>(
-        "NavigationControl",
-        [deps](const std::string &name, const BT::NodeConfiguration &config) {
-          return std::make_unique<NavigationControl>(name, config, deps);
-        });
-
-    // offboard控制节点
-    factory_.registerBuilder<OffBoardControl>(
-        "OffBoardControl",
-        [deps](const std::string &name, const BT::NodeConfiguration &config) {
-          return std::make_unique<OffBoardControl>(name, config, deps);
-        });
-
-    // 设置目标点节点
-    factory_.registerBuilder<SetDestinationPoint>(
-        "SetDestinationPoint",
-        [deps](const std::string &name, const BT::NodeConfiguration &config) {
-          return std::make_unique<SetDestinationPoint>(name, config, deps);
-        });
-
-    // 设置航线参数节点
-    factory_.registerBuilder<SetLineParameters>(
-        "SetLineParameters",
-        [deps](const std::string &name, const BT::NodeConfiguration &config) {
-          return std::make_unique<SetLineParameters>(name, config, deps);
-        });
-
-    // 跟踪攻击控制节点
-    factory_.registerBuilder<TraceAttackControl>(
-        "TraceAttackControl",
-        [deps](const std::string &name, const BT::NodeConfiguration &config) {
-          return std::make_unique<TraceAttackControl>(name, config, deps);
-        });
-
-    // 检查是否抵达目标点节点
-    factory_.registerBuilder<CheckArriveDestination>(
-        "CheckArriveDestination",
-        [deps](const std::string &name, const BT::NodeConfiguration &config) {
-          return std::make_unique<CheckArriveDestination>(name, config, deps);
-        });
-
-    // 检查是否退出搜索节点
-    factory_.registerBuilder<CheckQuitSearch>(
-        "CheckQuitSearch",
-        [deps](const std::string &name, const BT::NodeConfiguration &config) {
-          return std::make_unique<CheckQuitSearch>(name, config, deps);
-        });
-
-    // 检查是否退出航线循环节点
-    factory_.registerBuilder<CheckQuitLineLoop>(
-        "CheckQuitLineLoop",
-        [deps](const std::string &name, const BT::NodeConfiguration &config) {
-          return std::make_unique<CheckQuitLineLoop>(name, config, deps);
-        });
-
-    txtLog().info(THISMODULE "Behavior tree nodes registered");
-  }
-
-  void initialize() {
+  bool initialize() {
     if (is_initialized_.load()) {
       txtLog().warnning(THISMODULE "BehaviorExecutor already initialized");
-      return;
+      return true;
     }
 
-    if (!node_) {
-      txtLog().error(THISMODULE "Node not set");
-      return;
+    try {
+      if (!ros_comm_ || !data_cache_ || !mission_context_) {
+        txtLog().error(THISMODULE "Dependencies not set before initialization");
+        return false;
+      }
+
+      registerNodes();
+      is_initialized_.store(true);
+      is_healthy_.store(true);
+
+      txtLog().info(THISMODULE "Behavior executor initialized");
+      return true;
+
+    } catch (const std::exception& e) {
+      txtLog().error(THISMODULE "Failed to initialize: %s", e.what());
+      return false;
     }
-
-    // 创建状态发布器
-    status_publisher_ = node_->create_publisher<custom_msgs::msg::BehaviorTreeStatus>(
-        "behavior_tree/status", 10);
-
-    // 创建定时器
-    tick_timer_ = node_->create_wall_timer(
-        tick_interval_,
-        [this]() { tickCallback(); });
-
-    message_process_timer_ = node_->create_wall_timer(
-        message_check_interval_,
-        [this]() { processMessagesCallback(); });
-
-    // 初始状态下暂停行为树定时器
-    tick_timer_->cancel();
-
-    is_initialized_.store(true);
-    txtLog().info(THISMODULE "Behavior executor initialized");
   }
 
   void shutdown() {
+    if (!is_initialized_.load()) return;
+
     txtLog().info(THISMODULE "Shutting down behavior executor");
 
-    if (tick_timer_) tick_timer_->cancel();
-    if (message_process_timer_) message_process_timer_->cancel();
-
-    if (current_tree_) {
-      current_tree_->haltTree();
-      current_tree_.reset();
-    }
-
-    is_running_.store(false);
-    is_paused_.store(false);
-    current_tree_name_.clear();
+    stopTree();
+    is_initialized_.store(false);
+    is_healthy_.store(false);
 
     txtLog().info(THISMODULE "Behavior executor shutdown complete");
   }
 
-  bool loadTree(const std::string &tree_name) {
+  // ================================ 行为树管理 ================================
+
+  bool loadAndStartTree(const std::string& tree_name, const std::string& cmd = "start") {
     if (!is_initialized_.load()) {
       txtLog().error(THISMODULE "BehaviorExecutor not initialized");
       return false;
     }
 
     try {
-      // 停止当前树
-      if (current_tree_) {
-        current_tree_->haltTree();
-        current_tree_.reset();
-        if (tick_timer_) tick_timer_->cancel();
-        is_running_.store(false);
+      // 构建完整的行为树名称
+      std::string full_tree_name = tree_name;
+      if (full_tree_name.find('-') == std::string::npos) {
+        full_tree_name += "-" + cmd;
       }
 
+      // 停止当前树
+      if (execution_context_.state != behavior_core::TreeState::IDLE) {
+        stopTree();
+      }
+
+      // 更新执行上下文
+      execution_context_.tree_name = full_tree_name;
+      execution_context_.task_name = tree_name;
+      execution_context_.state = behavior_core::TreeState::LOADING;
+      execution_context_.start_time = std::chrono::steady_clock::now();
+      execution_context_.tick_count = 0;
+
       // 构建树文件路径
-      std::string tree_file = tree_directory_ + "/" + tree_name + ".xml";
+      std::string tree_file = tree_directory_ + "/" + full_tree_name + ".xml";
 
       // 从文件加载树
       current_tree_ = std::make_unique<BT::Tree>(
           factory_.createTreeFromFile(tree_file, blackboard_));
 
-      current_tree_name_ = tree_name;
-      is_paused_.store(false);
-      tick_count_.store(0);
-      last_node_status_.clear();
-
       // 更新任务上下文
       if (mission_context_) {
-        mission_context_->setCurrentTreeName(tree_name);
+        mission_context_->setCurrentTreeName(full_tree_name);
       }
 
-      // 发布初始状态
-      publishTreeStatus(BT::NodeStatus::RUNNING);
-
-      // 启动定时器开始执行
-      if (tick_timer_) {
-        tick_timer_->reset();
+      // 根据命令设置状态
+      if (cmd == "start") {
+        execution_context_.state = behavior_core::TreeState::RUNNING;
+      } else if (cmd == "pause") {
+        execution_context_.state = behavior_core::TreeState::PAUSED;
+      } else {
+        execution_context_.state = behavior_core::TreeState::RUNNING;
       }
-      is_running_.store(true);
 
-      txtLog().info(THISMODULE "Successfully loaded and started behavior tree: %s",
-                    tree_name.c_str());
+      txtLog().info(THISMODULE "Successfully loaded tree: %s (cmd: %s)",
+                    full_tree_name.c_str(), cmd.c_str());
       return true;
 
-    } catch (const std::exception &e) {
-      std::string error_msg = "Failed to load tree '" + tree_name + "': " + e.what();
-      txtLog().error(THISMODULE "%s", error_msg.c_str());
+    } catch (const std::exception& e) {
+      txtLog().error(THISMODULE "Failed to load tree '%s': %s",
+                     tree_name.c_str(), e.what());
+      execution_context_.state = behavior_core::TreeState::FAILED;
       return false;
     }
   }
 
-  void stopTree() {
-    if (current_tree_) {
-      current_tree_->haltTree();
-      current_tree_.reset();
+  // ================================ 行为树状态控制 ================================
+
+  bool startTree() {
+    if (execution_context_.state == behavior_core::TreeState::PAUSED ||
+        execution_context_.state == behavior_core::TreeState::IDLE) {
+      execution_context_.state = behavior_core::TreeState::RUNNING;
+      txtLog().info(THISMODULE "Tree started/resumed: %s",
+                    execution_context_.tree_name.c_str());
+      return true;
     }
-
-    if (tick_timer_) {
-      tick_timer_->cancel();
-    }
-
-    is_running_.store(false);
-    is_paused_.store(false);
-    current_tree_name_.clear();
-    last_node_status_.clear();
-
-    txtLog().info(THISMODULE "Behavior tree stopped");
+    return false;
   }
 
-  void pauseTree() {
-    if (is_running_.load()) {
-      is_paused_.store(true);
-      if (tick_timer_) {
-        tick_timer_->cancel();
+  bool pauseTree() {
+    if (execution_context_.state == behavior_core::TreeState::RUNNING) {
+      execution_context_.state = behavior_core::TreeState::PAUSED;
+      if (current_tree_) {
+        current_tree_->haltTree();
       }
-      txtLog().info(THISMODULE "Behavior tree paused");
+      txtLog().info(THISMODULE "Tree paused: %s",
+                    execution_context_.tree_name.c_str());
+      return true;
     }
+    return false;
   }
 
-  void resumeTree() {
-    if (is_running_.load() && is_paused_.load()) {
-      is_paused_.store(false);
-      if (tick_timer_) {
-        tick_timer_->reset();
+  bool continueTree() {
+    if (execution_context_.state == behavior_core::TreeState::PAUSED) {
+      execution_context_.state = behavior_core::TreeState::RUNNING;
+      txtLog().info(THISMODULE "Tree continued: %s",
+                    execution_context_.tree_name.c_str());
+      return true;
+    }
+    return false;
+  }
+
+  bool stopTree() {
+    if (execution_context_.state != behavior_core::TreeState::IDLE) {
+      execution_context_.state = behavior_core::TreeState::STOPPING;
+
+      if (current_tree_) {
+        current_tree_->haltTree();
+        current_tree_.reset();
       }
-      txtLog().info(THISMODULE "Behavior tree resumed");
+
+      execution_context_.state = behavior_core::TreeState::IDLE;
+      execution_context_.tree_name.clear();
+      execution_context_.task_name.clear();
+      execution_context_.tick_count = 0;
+
+      txtLog().info(THISMODULE "Tree stopped");
+      return true;
     }
+    return false;
   }
 
-  // 状态查询
-  bool isRunning() const { return is_running_.load(); }
-  bool isPaused() const { return is_paused_.load(); }
-  bool isInitialized() const { return is_initialized_.load(); }
-  std::string getCurrentTreeName() const { return current_tree_name_; }
-  size_t getTickCount() const { return tick_count_.load(); }
+  // ================================ 行为树执行 ================================
 
-  void setTickInterval(std::chrono::milliseconds interval) {
-    tick_interval_ = interval;
-
-    if (tick_timer_ && is_initialized_.load()) {
-      bool was_running = is_running_.load() && !is_paused_.load();
-
-      tick_timer_->cancel();
-      tick_timer_ = node_->create_wall_timer(
-          tick_interval_,
-          [this]() { tickCallback(); });
-
-      if (!was_running) {
-        tick_timer_->cancel();
-      }
-    }
-
-    txtLog().info(THISMODULE "Tick interval set to %ld ms", interval.count());
-  }
-
- private:
-  void tickCallback() {
-    if (!is_running_.load() || is_paused_.load() || !current_tree_) {
-      return;
+  bool tick() {
+    if (!current_tree_ || execution_context_.state != behavior_core::TreeState::RUNNING) {
+      return false;
     }
 
     try {
       auto start_time = std::chrono::steady_clock::now();
 
       BT::NodeStatus status = current_tree_->tickOnce();
-      tick_count_.fetch_add(1);
-      last_tick_time_ = start_time;
+      execution_context_.tick_count++;
+      execution_context_.last_tick_time = start_time;
+      execution_context_.last_status = status;
 
-      // 发布状态更新
-      publishTreeStatus(status);
+      // 处理行为树状态
+      handleTreeTickResult(status);
 
-      handleTreeStatus(status);
+      // 更新健康状态
+      updateHealthStatus();
 
       auto execution_time = std::chrono::steady_clock::now() - start_time;
       auto execution_ms = std::chrono::duration_cast<std::chrono::milliseconds>(execution_time);
@@ -374,124 +295,290 @@ class BehaviorExecutor {
                           execution_ms.count(), tick_interval_.count());
       }
 
-    } catch (const std::exception &e) {
+      return true;
+
+    } catch (const std::exception& e) {
       txtLog().error(THISMODULE "Exception in tree tick: %s", e.what());
-      publishTreeStatus(BT::NodeStatus::FAILURE);
-      stopTree();
+      execution_context_.state = behavior_core::TreeState::FAILED;
+      execution_context_.last_status = BT::NodeStatus::FAILURE;
+      return false;
     }
   }
 
-  void processMessagesCallback() {
-    if (!message_queue_) return;
+  // ================================ 状态查询 ================================
 
-    behavior_core::BehaviorMessage msg{behavior_core::BehaviorCommand::NONE, "", {}};
-    if (message_queue_->tryPop(msg)) {
-      switch (msg.command) {
-        case behavior_core::BehaviorCommand::LOAD_TREE: {
-          loadTree(msg.tree_name);
-          break;
-        }
+  bool isInitialized() const { return is_initialized_.load(); }
+  bool isHealthy() const {
+    // 检查基本健康状态
+    if (!is_healthy_.load()) return false;
 
-        case behavior_core::BehaviorCommand::STOP_TREE: {
-          stopTree();
-          break;
-        }
-
-        case behavior_core::BehaviorCommand::PAUSE_TREE: {
-          pauseTree();
-          break;
-        }
-
-        case behavior_core::BehaviorCommand::RESUME_TREE: {
-          resumeTree();
-          break;
-        }
-
-        case behavior_core::BehaviorCommand::SHUTDOWN: {
-          shutdown();
-          break;
-        }
-
-        default: {
-          txtLog().warnning(THISMODULE "Unknown behavior command: %d", static_cast<int>(msg.command));
-          break;
-        }
-      }
+    // 检查是否长时间没有健康检查
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_healthy_check_);
+    if (elapsed > health_check_interval_ * 5) { // 5倍间隔认为不健康
+      return false;
     }
+
+    return true;
   }
 
-  void handleTreeStatus(BT::NodeStatus status) {
-    if (status == BT::NodeStatus::SUCCESS) {
-      txtLog().info(THISMODULE "Behavior tree completed successfully");
-      onTreeCompleted(true);
-    } else if (status == BT::NodeStatus::FAILURE) {
-      txtLog().warnning(THISMODULE "Behavior tree failed");
-      onTreeCompleted(false);
+  bool isRunning() const {
+    return execution_context_.state == behavior_core::TreeState::RUNNING;
+  }
+
+  bool isPaused() const {
+    return execution_context_.state == behavior_core::TreeState::PAUSED;
+  }
+
+  behavior_core::TreeState getTreeState() const {
+    return execution_context_.state;
+  }
+
+  std::string getCurrentTreeName() const {
+    return execution_context_.tree_name;
+  }
+
+  std::string getCurrentTaskName() const {
+    return execution_context_.task_name;
+  }
+
+  size_t getTickCount() const {
+    return execution_context_.tick_count;
+  }
+
+  BT::NodeStatus getLastStatus() const {
+    return execution_context_.last_status;
+  }
+
+  // ================================ 配置管理 ================================
+
+  void setTickInterval(std::chrono::milliseconds interval) {
+    tick_interval_ = interval;
+    txtLog().info(THISMODULE "Tick interval set to %ld ms", interval.count());
+  }
+
+  std::chrono::milliseconds getTickInterval() const {
+    return tick_interval_;
+  }
+
+  void setTreeDirectory(const std::string& directory) {
+    tree_directory_ = directory;
+    txtLog().info(THISMODULE "Tree directory set to: %s", directory.c_str());
+  }
+
+  // ================================ 统计信息 ================================
+
+  struct ExecutionStatistics {
+    std::string current_tree_name;
+    std::string current_task_name;
+    behavior_core::TreeState state;
+    size_t total_ticks{};
+    std::chrono::milliseconds execution_time{};
+    BT::NodeStatus last_status;
+    bool is_healthy{};
+  };
+
+  ExecutionStatistics getExecutionStatistics() const {
+    ExecutionStatistics stats;
+    stats.current_tree_name = execution_context_.tree_name;
+    stats.current_task_name = execution_context_.task_name;
+    stats.state = execution_context_.state;
+    stats.total_ticks = execution_context_.tick_count;
+
+    if (execution_context_.state != behavior_core::TreeState::IDLE) {
+      auto now = std::chrono::steady_clock::now();
+      stats.execution_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+          now - execution_context_.start_time);
+    } else {
+      stats.execution_time = std::chrono::milliseconds{0};
     }
+
+    stats.last_status = execution_context_.last_status;
+    stats.is_healthy = isHealthy();
+
+    return stats;
   }
 
-  void onTreeCompleted(bool success) {
-    publishTreeStatus(success ? BT::NodeStatus::SUCCESS : BT::NodeStatus::FAILURE);
-    stopTree();
+ private:
+  // ================================ 内部方法 ================================
 
-    txtLog().info(THISMODULE "Tree execution completed, status: %s",
-                  success ? "SUCCESS" : "FAILURE");
-  }
-
-  void publishTreeStatus(BT::NodeStatus tree_status) {
-    if (!status_publisher_ || !current_tree_) {
+  void registerNodes() {
+    if (!ros_comm_ || !data_cache_ || !mission_context_) {
+      txtLog().error(THISMODULE "Dependencies not set before registering nodes");
       return;
     }
 
-    custom_msgs::msg::BehaviorTreeStatus status_msg;
-    status_msg.tree_name = current_tree_name_;
-    status_msg.tree_status = nodeStatusToString(tree_status);
-    status_msg.timestamp = node_->now().nanoseconds();
+    NodeDependencies deps{ros_comm_, data_cache_, mission_context_};
 
-    // 遍历所有节点获取状态
-    current_tree_->applyVisitor([&](BT::TreeNode *node) {
-      if (!node) return;
+    // 注册控制节点
+    registerControlNodes(deps);
 
-      custom_msgs::msg::BehaviorNodeStatus node_status;
-      node_status.name = node->name();
-      node_status.uid = std::to_string(node->UID());
+    // 注册任务节点
+    registerTaskNodes(deps);
 
-      // 获取节点类型
-      if (dynamic_cast<BT::ActionNodeBase *>(node)) {
-        node_status.type = "Action";
-      } else if (dynamic_cast<BT::ConditionNode *>(node)) {
-        node_status.type = "Condition";
-      } else if (dynamic_cast<BT::ControlNode *>(node)) {
-        node_status.type = "Control";
-      } else if (dynamic_cast<BT::DecoratorNode *>(node)) {
-        node_status.type = "Decorator";
-      } else {
-        node_status.type = "Unknown";
-      }
+    txtLog().info(THISMODULE "All behavior tree nodes registered");
+  }
 
-      // 获取节点状态
-      node_status.status = nodeStatusToString(node->status());
-      node_status.execution_time = 0.0; // 可以后续添加执行时间统计
+  void registerControlNodes(const NodeDependencies& deps) {
+    // 飞行控制节点
+    factory_.registerBuilder<FlightModeControl>(
+        "FlightModeControl",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<FlightModeControl>(name, config, deps);
+        });
 
-      status_msg.nodes.push_back(node_status);
-    });
+    factory_.registerBuilder<LockControl>(
+        "LockControl",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<LockControl>(name, config, deps);
+        });
 
-    last_tree_status_ = tree_status;
+    factory_.registerBuilder<OffBoardControl>(
+        "OffBoardControl",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<OffBoardControl>(name, config, deps);
+        });
 
-    try {
-      status_publisher_->publish(status_msg);
-    } catch (const std::exception &e) {
-      txtLog().error(THISMODULE "Failed to publish tree status: %s", e.what());
+    factory_.registerBuilder<NavigationControl>(
+        "NavigationControl",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<NavigationControl>(name, config, deps);
+        });
+
+    factory_.registerBuilder<JoyControl>(
+        "JoyControl",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<JoyControl>(name, config, deps);
+        });
+
+    // 设置节点
+    factory_.registerBuilder<SetDestinationPoint>(
+        "SetDestinationPoint",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<SetDestinationPoint>(name, config, deps);
+        });
+
+    factory_.registerBuilder<SetLineParameters>(
+        "SetLineParameters",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<SetLineParameters>(name, config, deps);
+        });
+
+    // 条件节点
+    factory_.registerBuilder<CheckArriveDestination>(
+        "CheckArriveDestination",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<CheckArriveDestination>(name, config, deps);
+        });
+
+    factory_.registerBuilder<CheckQuitSearch>(
+        "CheckQuitSearch",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<CheckQuitSearch>(name, config, deps);
+        });
+
+    factory_.registerBuilder<CheckQuitLineLoop>(
+        "CheckQuitLineLoop",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<CheckQuitLineLoop>(name, config, deps);
+        });
+  }
+
+  void registerTaskNodes(const NodeDependencies& deps) {
+    // 基础任务节点
+    factory_.registerBuilder<TakeOffAction>(
+        "TakeOffAction",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<TakeOffAction>(name, config, deps);
+        });
+
+    factory_.registerBuilder<LandAction>(
+        "LandAction",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<LandAction>(name, config, deps);
+        });
+
+    factory_.registerBuilder<LoiterAction>(
+        "LoiterAction",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<LoiterAction>(name, config, deps);
+        });
+
+    factory_.registerBuilder<RtlDirectAction>(
+        "RtlDirectAction",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<RtlDirectAction>(name, config, deps);
+        });
+
+    factory_.registerBuilder<NavlineAction>(
+        "NavlineAction",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<NavlineAction>(name, config, deps);
+        });
+
+    factory_.registerBuilder<AttackAction>(
+        "AttackAction",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<AttackAction>(name, config, deps);
+        });
+
+    factory_.registerBuilder<TraceAttackControl>(
+        "TraceAttackControl",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<TraceAttackControl>(name, config, deps);
+        });
+  }
+
+  void handleTreeTickResult(BT::NodeStatus status) {
+    switch (status) {
+      case BT::NodeStatus::SUCCESS:
+        txtLog().info(THISMODULE "Tree completed successfully: %s",
+                      execution_context_.tree_name.c_str());
+        execution_context_.state = behavior_core::TreeState::COMPLETED;
+        break;
+
+      case BT::NodeStatus::FAILURE:
+        txtLog().warnning(THISMODULE "Tree failed: %s",
+                          execution_context_.tree_name.c_str());
+        execution_context_.state = behavior_core::TreeState::FAILED;
+        break;
+
+      case BT::NodeStatus::RUNNING:
+        // 继续运行，无需特殊处理
+        break;
+
+      default:
+        txtLog().warnning(THISMODULE "Unexpected tree status: %d",
+                          static_cast<int>(status));
+        break;
     }
   }
 
-  static std::string nodeStatusToString(BT::NodeStatus status) {
-    switch (status) {
-      case BT::NodeStatus::IDLE: return "IDLE";
-      case BT::NodeStatus::RUNNING: return "RUNNING";
-      case BT::NodeStatus::SUCCESS: return "SUCCESS";
-      case BT::NodeStatus::FAILURE: return "FAILURE";
-      default: return "UNKNOWN";
+  void updateHealthStatus() {
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+        now - last_healthy_check_);
+
+    if (elapsed >= health_check_interval_) {
+      // 执行健康检查
+      bool healthy = true;
+
+      // 检查依赖项是否有效
+      if (!ros_comm_ || !data_cache_ || !mission_context_) {
+        healthy = false;
+      }
+
+      // 检查执行频率是否正常
+      if (execution_context_.state == behavior_core::TreeState::RUNNING) {
+        auto tick_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+            now - execution_context_.last_tick_time);
+        if (tick_elapsed > tick_interval_ * 5) { // 5倍间隔认为异常
+          healthy = false;
+        }
+      }
+
+      is_healthy_.store(healthy);
+      last_healthy_check_ = now;
     }
   }
 };

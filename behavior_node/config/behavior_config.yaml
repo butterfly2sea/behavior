@@ -1,0 +1,34 @@
+behavior_node:
+  ros__parameters:
+    # 行为树文件目录
+    tree_directory: "trees"
+
+    # 系统参数
+    tick_interval_ms: 50          # 行为树执行频率 (20Hz)
+    status_interval_ms: 1000      # 状态发布频率 (1Hz)
+    watchdog_interval_ms: 5000    # 看门狗检查频率 (0.2Hz)
+    message_queue_size: 100       # 消息队列大小
+
+    # 超时设置
+    action_timeout_ms: 30000      # 动作超时时间 (30秒)
+    tree_load_timeout_ms: 5000    # 行为树加载超时 (5秒)
+
+    # 日志设置
+    log_level: "info"             # 日志级别: debug, info, warn, error
+    enable_tree_logging: true     # 是否启用行为树执行日志
+
+    # 任务参数
+    default_takeoff_altitude: 50.0   # 默认起飞高度 (米)
+    default_landing_speed: 1.0       # 默认降落速度 (m/s)
+    default_navigation_speed: 2.0    # 默认导航速度 (m/s)
+    default_arrival_distance: 2.0    # 默认到达距离 (米)
+    default_loiter_duration: 10      # 默认悬停时间 (秒)
+
+    # 安全参数
+    max_altitude: 500.0              # 最大飞行高度 (米)
+    min_altitude: 5.0                # 最小飞行高度 (米)
+    geofence_radius: 1000.0          # 地理围栏半径 (米)
+
+    # 编队参数
+    formation_spacing: 5.0           # 编队间距 (米)
+    formation_altitude_offset: 2.0   # 编队高度偏移 (米)
