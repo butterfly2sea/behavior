@@ -35,6 +35,7 @@
 
 // 前向声明
 class ROSCommunicationManager;
+<<<<<<< Updated upstream
 
 namespace behavior_core {
 
@@ -63,6 +64,8 @@ struct TreeExecutionContext {
 
 } // namespace behavior_core
 
+=======
+>>>>>>> Stashed changes
 class BehaviorExecutor {
  private:
   BT::BehaviorTreeFactory factory_;
@@ -81,6 +84,7 @@ class BehaviorExecutor {
   std::shared_ptr<Cache> data_cache_;
   std::shared_ptr<MissionContext> mission_context_;
 
+<<<<<<< Updated upstream
   // 状态管理
   std::atomic<bool> is_initialized_{false};
   std::chrono::milliseconds tick_interval_{50}; // 20Hz
@@ -89,6 +93,11 @@ class BehaviorExecutor {
   std::atomic<bool> is_healthy_{true};
   std::chrono::steady_clock::time_point last_healthy_check_;
   std::chrono::milliseconds health_check_interval_{1000};
+=======
+  // 状态监控
+  std::map<std::string, BT::NodeStatus> last_node_status_;
+  BT::NodeStatus last_tree_status_{BT::NodeStatus::IDLE};
+>>>>>>> Stashed changes
 
  public:
   BehaviorExecutor(rclcpp::Node::SharedPtr node, std::string tree_dir = "trees")
@@ -126,6 +135,7 @@ class BehaviorExecutor {
       }
 
       registerNodes();
+<<<<<<< Updated upstream
       is_initialized_.store(true);
       is_healthy_.store(true);
 
@@ -133,6 +143,25 @@ class BehaviorExecutor {
       return true;
 
     } catch (const std::exception& e) {
+=======
+      // 创建定时器
+      tick_timer_ = node_->create_wall_timer(
+          tick_interval_,
+          [this]() { tickCallback(); });
+
+      message_process_timer_ = node_->create_wall_timer(
+          message_check_interval_,
+          [this]() { processMessagesCallback(); });
+
+      // 初始状态下暂停行为树定时器
+      tick_timer_->cancel();
+
+      is_initialized_.store(true);
+      txtLog().info(THISMODULE "Behavior executor initialized");
+      return true;
+
+    } catch (const std::exception &e) {
+>>>>>>> Stashed changes
       txtLog().error(THISMODULE "Failed to initialize: %s", e.what());
       return false;
     }
@@ -147,12 +176,20 @@ class BehaviorExecutor {
     is_initialized_.store(false);
     is_healthy_.store(false);
 
+    if (mission_context_) {
+      mission_context_->setCurrentTreeName("");
+    }
+
     txtLog().info(THISMODULE "Behavior executor shutdown complete");
   }
 
   // ================================ 行为树管理 ================================
 
+<<<<<<< Updated upstream
   bool loadAndStartTree(const std::string& tree_name, const std::string& cmd = "start") {
+=======
+  bool loadTree(const std::string &tree_name) {
+>>>>>>> Stashed changes
     if (!is_initialized_.load()) {
       txtLog().error(THISMODULE "BehaviorExecutor not initialized");
       return false;
@@ -189,6 +226,7 @@ class BehaviorExecutor {
         mission_context_->setCurrentTreeName(full_tree_name);
       }
 
+<<<<<<< Updated upstream
       // 根据命令设置状态
       if (cmd == "start") {
         execution_context_.state = behavior_core::TreeState::RUNNING;
@@ -196,10 +234,19 @@ class BehaviorExecutor {
         execution_context_.state = behavior_core::TreeState::PAUSED;
       } else {
         execution_context_.state = behavior_core::TreeState::RUNNING;
+=======
+      // 启动定时器开始执行
+      if (tick_timer_) {
+        tick_timer_->reset();
+>>>>>>> Stashed changes
       }
 
+<<<<<<< Updated upstream
       txtLog().info(THISMODULE "Successfully loaded tree: %s (cmd: %s)",
                     full_tree_name.c_str(), cmd.c_str());
+=======
+      txtLog().info(THISMODULE "Successfully loaded and started behavior tree: %s", tree_name.c_str());
+>>>>>>> Stashed changes
       return true;
 
     } catch (const std::exception& e) {
@@ -210,6 +257,7 @@ class BehaviorExecutor {
     }
   }
 
+<<<<<<< Updated upstream
   // ================================ 行为树状态控制 ================================
 
   bool startTree() {
@@ -221,6 +269,29 @@ class BehaviorExecutor {
       return true;
     }
     return false;
+=======
+// ================================ 行为树执行 ================================
+  void stopTree() {
+    if (current_tree_) {
+      current_tree_->haltTree();
+      current_tree_.reset();
+    }
+
+    if (tick_timer_) {
+      tick_timer_->cancel();
+    }
+
+    is_running_.store(false);
+    is_paused_.store(false);
+    current_tree_name_.clear();
+    last_node_status_.clear();
+
+    if (mission_context_) {
+      mission_context_->setCurrentTreeName("");
+    }
+
+    txtLog().info(THISMODULE "Behavior tree stopped");
+>>>>>>> Stashed changes
   }
 
   bool pauseTree() {
@@ -266,7 +337,17 @@ class BehaviorExecutor {
     return false;
   }
 
+<<<<<<< Updated upstream
   // ================================ 行为树执行 ================================
+=======
+  // 状态查询
+  bool isRunning() const { return is_running_.load(); }
+  bool isPaused() const { return is_paused_.load(); }
+  bool isInitialized() const { return is_initialized_.load(); }
+  std::string getCurrentTreeName() const { return current_tree_name_; }
+  size_t getTickCount() const { return tick_count_.load(); }
+  BT::NodeStatus getLastStatus() const { return last_tree_status_; }
+>>>>>>> Stashed changes
 
   bool tick() {
     if (!current_tree_ || execution_context_.state != behavior_core::TreeState::RUNNING) {
@@ -281,12 +362,15 @@ class BehaviorExecutor {
       execution_context_.last_tick_time = start_time;
       execution_context_.last_status = status;
 
+<<<<<<< Updated upstream
       // 处理行为树状态
       handleTreeTickResult(status);
 
       // 更新健康状态
       updateHealthStatus();
 
+=======
+>>>>>>> Stashed changes
       auto execution_time = std::chrono::steady_clock::now() - start_time;
       auto execution_ms = std::chrono::duration_cast<std::chrono::milliseconds>(execution_time);
 
@@ -299,9 +383,13 @@ class BehaviorExecutor {
 
     } catch (const std::exception& e) {
       txtLog().error(THISMODULE "Exception in tree tick: %s", e.what());
+<<<<<<< Updated upstream
       execution_context_.state = behavior_core::TreeState::FAILED;
       execution_context_.last_status = BT::NodeStatus::FAILURE;
       return false;
+=======
+      stopTree();
+>>>>>>> Stashed changes
     }
   }
 
@@ -399,8 +487,19 @@ class BehaviorExecutor {
     return stats;
   }
 
+<<<<<<< Updated upstream
  private:
   // ================================ 内部方法 ================================
+=======
+  void onTreeCompleted(bool success) {
+    stopTree();
+    txtLog().info(THISMODULE "Tree execution completed, status: %s",
+                  success ? "SUCCESS" : "FAILURE");
+  }
+
+ private:
+// ================================ 内部方法 ================================
+>>>>>>> Stashed changes
 
   void registerNodes() {
     if (!ros_comm_ || !data_cache_ || !mission_context_) {
@@ -417,6 +516,7 @@ class BehaviorExecutor {
     registerTaskNodes(deps);
 
     txtLog().info(THISMODULE "All behavior tree nodes registered");
+<<<<<<< Updated upstream
   }
 
   void registerControlNodes(const NodeDependencies& deps) {
@@ -580,5 +680,117 @@ class BehaviorExecutor {
       is_healthy_.store(healthy);
       last_healthy_check_ = now;
     }
+=======
+  }
+
+  void registerControlNodes(const NodeDependencies &deps) {
+    // 飞行控制节点
+    factory_.registerBuilder<FlightModeControl>(
+        "FlightModeControl",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<FlightModeControl>(name, config, deps);
+        });
+
+    factory_.registerBuilder<LockControl>(
+        "LockControl",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<LockControl>(name, config, deps);
+        });
+
+    factory_.registerBuilder<OffBoardControl>(
+        "OffBoardControl",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<OffBoardControl>(name, config, deps);
+        });
+
+    factory_.registerBuilder<NavigationControl>(
+        "NavigationControl",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<NavigationControl>(name, config, deps);
+        });
+
+    factory_.registerBuilder<JoyControl>(
+        "JoyControl",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<JoyControl>(name, config, deps);
+        });
+
+    // 设置节点
+    factory_.registerBuilder<SetDestinationPoint>(
+        "SetDestinationPoint",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<SetDestinationPoint>(name, config, deps);
+        });
+
+    factory_.registerBuilder<SetLineParameters>(
+        "SetLineParameters",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<SetLineParameters>(name, config, deps);
+        });
+
+    // 条件节点
+    factory_.registerBuilder<CheckArriveDestination>(
+        "CheckArriveDestination",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<CheckArriveDestination>(name, config, deps);
+        });
+
+    factory_.registerBuilder<CheckQuitSearch>(
+        "CheckQuitSearch",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<CheckQuitSearch>(name, config, deps);
+        });
+
+    factory_.registerBuilder<CheckQuitLineLoop>(
+        "CheckQuitLineLoop",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<CheckQuitLineLoop>(name, config, deps);
+        });
+  }
+
+  void registerTaskNodes(const NodeDependencies &deps) {
+    // 基础任务节点
+    factory_.registerBuilder<TakeOffAction>(
+        "TakeOffAction",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<TakeOffAction>(name, config, deps);
+        });
+
+    factory_.registerBuilder<LandAction>(
+        "LandAction",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<LandAction>(name, config, deps);
+        });
+
+    factory_.registerBuilder<LoiterAction>(
+        "LoiterAction",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<LoiterAction>(name, config, deps);
+        });
+
+    factory_.registerBuilder<RtlDirectAction>(
+        "RtlDirectAction",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<RtlDirectAction>(name, config, deps);
+        });
+
+    factory_.registerBuilder<NavlineAction>(
+        "NavlineAction",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<NavlineAction>(name, config, deps);
+        });
+
+    factory_.registerBuilder<AttackAction>(
+        "AttackAction",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<AttackAction>(name, config, deps);
+        });
+
+    factory_.registerBuilder<TraceAttackControl>(
+        "TraceAttackControl",
+        [deps](const std::string &name, const BT::NodeConfiguration &config) {
+          return std::make_unique<TraceAttackControl>(name, config, deps);
+        });
+>>>>>>> Stashed changes
   }
 };

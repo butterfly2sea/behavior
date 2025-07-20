@@ -47,7 +47,6 @@ class BehaviorControlNode : public rclcpp::Node {
     shutdown();
   }
 
-  // 新增：独立的初始化方法
   bool initialize() {
     if (initialized_.load()) {
       txtLog().warnning(THISMODULE "Node already initialized");
@@ -58,9 +57,6 @@ class BehaviorControlNode : public rclcpp::Node {
       txtLog().error(THISMODULE "Failed to initialize components");
       return false;
     }
-
-    setupTimers();
-
     initialized_.store(true);
     txtLog().info(THISMODULE "Behavior Control Node initialized successfully");
     return true;
@@ -76,6 +72,7 @@ class BehaviorControlNode : public rclcpp::Node {
     if (status_timer_) status_timer_->cancel();
     if (watchdog_timer_) watchdog_timer_->cancel();
 
+    // 关闭各组件
     if (behavior_executor_) {
       behavior_executor_->shutdown();
     }
@@ -88,6 +85,7 @@ class BehaviorControlNode : public rclcpp::Node {
       mission_context_->setSystemState(behavior_core::SystemState::SHUTTING_DOWN);
     }
 
+    initialized_.store(false);
     txtLog().info(THISMODULE "Behavior Control Node shutdown complete");
   }
 
@@ -139,7 +137,6 @@ class BehaviorControlNode : public rclcpp::Node {
 
       // 初始化组件
       ros_comm_->initialize();
-      behavior_executor_->registerNodes();
       behavior_executor_->initialize();
 
       // 设置行为执行器参数
@@ -157,53 +154,5 @@ class BehaviorControlNode : public rclcpp::Node {
     }
   }
 
-  void setupTimers() {
-    status_timer_ = create_wall_timer(
-        status_interval_,
-        [this]() { publishStatus(); });
 
-    watchdog_timer_ = create_wall_timer(
-        watchdog_interval_,
-        [this]() { watchdogCheck(); });
-  }
-
-  void publishStatus() {
-    if (!mission_context_ || !data_cache_ || !behavior_executor_) return;
-
-//    auto system_state = mission_context_->getSystemState();
-//    bool executor_running = behavior_executor_->isRunning();
-//    std::string current_tree = behavior_executor_->getCurrentTreeName();
-
-//    txtLog().debug(
-//        THISMODULE
-//        "Status - System: %d, Vehicle: %s, Executor: %s, Tree: %s",
-//        static_cast<int>(system_state),
-//        data_cache_->isVehicleStateValid() ? "OK" : "INVALID",
-//        executor_running ? "RUNNING" : "STOPPED",
-//        current_tree.c_str());
-  }
-
-  void watchdogCheck() {
-    if (!data_cache_) return;
-
-//    if (!data_cache_->isVehicleStateValid()) {
-//      txtLog().warnning(THISMODULE "Vehicle state data is stale or invalid");
-//    }
-
-    // 检查行为执行器状态
-    if (behavior_executor_) {
-      size_t tick_count = behavior_executor_->getTickCount();
-      static size_t last_tick_count = 0;
-
-      if (behavior_executor_->isRunning() && tick_count == last_tick_count) {
-        txtLog().warnning(THISMODULE "Behavior executor may be stuck");
-      }
-      last_tick_count = tick_count;
-    }
-
-    // 检查消息队列状态
-    if (message_queue_ && message_queue_->size() > 50) {
-      txtLog().warnning(THISMODULE "Message queue is filling up: %zu messages", message_queue_->size());
-    }
-  }
 };

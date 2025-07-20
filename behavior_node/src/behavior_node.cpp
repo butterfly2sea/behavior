@@ -4,28 +4,29 @@
 
 std::shared_ptr<BehaviorControlNode> g_node = nullptr;
 
-void signalHandler(int signum) {
+void signalHandler(int signal) {
   if (g_node) {
-    txtLog().info(THISMODULE "Received signal %d, shutting down...", signum);
+    txtLog().info(THISMODULE "Received signal %d, shutting down gracefully", signal);
     g_node->shutdown();
     rclcpp::shutdown();
   }
-  exit(signum);
+  exit(signal);
 }
 
 int main(int argc, char** argv) {
   rclcpp::init(argc, argv);
 
-  signal(SIGINT, signalHandler);
-  signal(SIGTERM, signalHandler);
+  // 设置信号处理器
+  std::signal(SIGINT, signalHandler);
+  std::signal(SIGTERM, signalHandler);
 
   try {
-    // 1. 先创建节点对象
+    // 创建节点
     g_node = std::make_shared<BehaviorControlNode>();
 
-    // 2. 等待节点完全被shared_ptr管理后，再进行初始化
+    // 初始化
     if (!g_node->initialize()) {
-      txtLog().error(THISMODULE "Failed to initialize behavior control node");
+      txtLog().error(THISMODULE "Failed to initialize BehaviorControlNode");
       return -1;
     }
 

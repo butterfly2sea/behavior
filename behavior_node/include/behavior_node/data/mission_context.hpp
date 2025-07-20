@@ -7,7 +7,10 @@
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/polygon.hpp>
 #include <custom_msgs/msg/task_stage.hpp>
+<<<<<<< Updated upstream
 #include <custom_msgs/msg/status_task.hpp>
+=======
+>>>>>>> Stashed changes
 #include <custom_msgs/msg/object_location.hpp>
 
 #include "behavior_node/data/base_enum.hpp"
