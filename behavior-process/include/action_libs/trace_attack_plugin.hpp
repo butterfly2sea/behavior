@@ -1,6 +1,6 @@
 #ifndef ZYZN_PLUGIN_TRACEATTACK_PLUGIN_HPP
 #define ZYZN_PLUGIN_TRACEATTACK_PLUGIN_HPP
-#include <base_plugin.hpp>
+#include <behavior_lib/plugin/base_plugin.hpp>
 
 namespace zyzn{
     namespace plugin{
@@ -10,12 +10,10 @@ namespace zyzn{
         class TraceAttackPlugin: public BasePlugin{
             public:
             enum TraceAttackCtrl{
-                POD_GPS_LOCK = 8,         ///<! 吊舱二次锁定即gps锁定>
-                CANCEL_POD_GPS_LOCK = 254 ///<! 吊舱取消二次锁定即取消gps锁定>
+                POD_GPS_LOCK = 8,         ///<! 鍚婅埍浜屾閿佸畾鍗砱ps閿佸畾>
+                CANCEL_POD_GPS_LOCK = 254 ///<! 鍚婅埍鍙栨秷浜屾閿佸畾鍗冲彇娑坓ps閿佸畾>
             };
             
-            bool parseJsonParam(const Json::Value & params);
-
             void registerNode(BT::BehaviorTreeFactory &factory);
             
             bool procTraceAttack(const custom_msgs::msg::ObjectAttackDesignate::ConstSharedPtr msg,std::string & treeName);

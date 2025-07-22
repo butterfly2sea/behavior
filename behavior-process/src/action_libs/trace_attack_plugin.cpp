@@ -1,31 +1,19 @@
 #include <stdexcept>
-#include <trace_attack_plugin.hpp>
+#include <action_libs/trace_attack_plugin.hpp>
 #include <set/SetTraceAttackObj.hpp>
 #include <check/CheckQuitSearch.hpp>
-#include <control/TraceAttackCtrl.hpp>
-#include <status/CommandStatus.hpp>
-#include <interface.hpp>
+#include <behavior_lib/control/TraceAttackCtrl.hpp>
+#include <behavior_lib/status/CommandStatus.hpp>
+#include <behavior_lib/plugin/interface.hpp>
+#include <control/FuelUp.hpp>
+#include <control/CameraCtrl.hpp>
+#include <status/TraceStatus.hpp>
+#include <get/GetTraceCtrl.hpp>
+#include <get/GetTraceInfo.hpp>
+#include <log/Logger.hpp>
+
 namespace zyzn{
     namespace plugin{
-        bool TraceAttackPlugin::parseJsonParam(const Json::Value & params){
-            try{
-                bool isValid = false;
-                for(const Json::Value & param : params){
-                    if(param["name"].asCString() == "tgtId"){
-                        set::CSetTraceAttackObj::m_s_tgt.tgtId = plugin::BasePlugin::getValue(param["value"]);
-                        isValid = true;
-                    }else if(param["name"].asCString() == "srcId"){
-                        set::CSetTraceAttackObj::m_s_tgt.srcId = plugin::BasePlugin::getValue(param["value"]);
-                    }
-                }
-                return isValid;
-            }
-            catch(std::exception & e){
-                return false;
-            }
-            return true;
-            
-        }
 
         void TraceAttackPlugin::registerNode(BT::BehaviorTreeFactory &factory){
 
@@ -40,11 +28,10 @@ namespace zyzn{
             
         bool TraceAttackPlugin::procTraceAttack(const custom_msgs::msg::ObjectAttackDesignate::ConstSharedPtr msg,
         std::string & treeName){
-            set::CSetTraceAttackObj::m_s_tgt.tgtId = 0;
-            set::CSetTraceAttackObj::m_s_attckObj = msg.get()->objs;
-            ctrl::CTraceAttackCtrl::m_s_traceAttackType = msg.get()->type;
+            
             status::CCommandStatus::cmdRspMsg().src = status::CCommandStatus::ECtrlType::TraceAttack;
             status::CCommandStatus::cmdRspMsg().type = msg.get()->type;
+
             if((ctrl::CTraceAttackCtrl::UpdateMixObj == msg->type) || 
             (ctrl::CTraceAttackCtrl::UpdateGrdObj == msg->type)){
                 status::CTraceStatus::mixObj().objLat = msg->objs.x;
@@ -52,7 +39,7 @@ namespace zyzn{
                 status::CTraceStatus::mixObj().objAlt = msg->objs.z;
                 return true;
             }
-           
+            txtLog().info(THISMODULE "procTraceAttack: type:%d",msg->type);
             if(ctrl::CTraceAttackCtrl::Abort == msg->type){
                 treeName = "LoitTree";
             }else  if(msg->type>=ctrl::CTraceAttackCtrl::EleMagAccLd && msg->type<=ctrl::CTraceAttackCtrl::EleMagVerLd){//电磁干扰攻击只降落
@@ -72,9 +59,11 @@ namespace zyzn{
                 set::CSetTraceAttackObj::objLoc().y,set::CSetTraceAttackObj::objLoc().z);
                 ctrl::CTraceAttackCtrl::m_s_traceAttackType= msg.get()->type;
                 treeName = "Attack-start";
+            }
 
             return true;
         }
+        
 
         std::shared_ptr<BasePlugin> create_plugin(){
             return std::make_shared<TraceAttackPlugin>();

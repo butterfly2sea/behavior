@@ -79,6 +79,15 @@ namespace zyzn{
                 Failed=1,       ///<!失败>
             };
 
+            /**
+             * @brief 使用的上报类型
+            */
+            enum ERspType{
+                CMD_RSP=1,  ///<! 指令状态上报>
+                TASK_RSP=2, ///<! 任务状态上报>
+                BOTH_RSP=CMD_RSP|TASK_RSP ///<! 指令状态+任务状态上报>
+            };
+
 
             CCommandStatus(const std::string& name,
             const NodeConfig& conf);
@@ -122,6 +131,7 @@ namespace zyzn{
             static rclcpp::Publisher<custom_msgs::msg::StatusTask>::SharedPtr m_s_pubStsTask;//任务状态上报发布对象
             static custom_msgs::msg::StatusTask m_s_msgStsTsk;//任务状态上报消息
             static custom_msgs::msg::CommandResponse m_s_msgCmdRsp;//消息回复对象
+            int m_rspType;//上报类型
         };
     }
 }

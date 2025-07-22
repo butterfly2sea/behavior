@@ -12,7 +12,6 @@
                 <TraceAttackCtrl frame="1" command="1" current="0" />
             </ForceSuccess>
             <SubTree ID="LoitTree" />
-            
         </SequenceWithMemory>
     </BehaviorTree>
     

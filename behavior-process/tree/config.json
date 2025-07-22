@@ -1,24 +1,8 @@
 {
     "plugins":[
         {
-            "name":"dest_search_plugin",
-            "actions":["AutoTrace"]
-        },
-        {
-            "name":"navline_plugin",
-            "actions":["Navline","SrchViaLine"]
-        },
-        {
-            "name":"takeoff_plugin",
-            "actions":["TakeOff"]
-        },
-        {
             "name":"trace_attack_plugin",
-            "actions":["Attack","Trace"]
-        },
-        {
-            "name":"topic_trans_plugin",
-            "actions":["29jidiNavline"]
+            "actions":["FuelUp"]
         }
     ],
     "xmlFiles":[

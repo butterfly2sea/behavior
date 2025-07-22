@@ -31,9 +31,7 @@
         <ForceSuccess>
             <NavwayCtrl frame="1" command="3"/>
         </ForceSuccess>
-        <ForceSuccess>
-            <TraceAttackCtrl frame="1" command="3" />
-        </ForceSuccess>
+        <FuelUp ctrl="3"/>
         <SubTree ID="KeepRunTree" />
         </SequenceWithMemory>
     </BehaviorTree>
@@ -51,9 +49,7 @@
          <ForceSuccess>
             <NavwayCtrl frame="1" command="3"/>
         </ForceSuccess>
-        <ForceSuccess>
-            <TraceAttackCtrl frame="1" command="3" />
-        </ForceSuccess>
+        <FuelUp ctrl="3"/>
         <SubTree ID="KeepRunTree" />
         </SequenceWithMemory> 
     </BehaviorTree>
@@ -63,9 +59,7 @@
         <ForceSuccess>
             <NavwayCtrl frame="1" command="3"/>
         </ForceSuccess>
-        <ForceSuccess>
-            <TraceAttackCtrl frame="1" command="3" />
-        </ForceSuccess>
+        <FuelUp ctrl="3"/>
        
          <SubTree ID="EnterOffboardTree" />
             <GetLocation target="{ctrl_info}" zoffset="0"/>
@@ -86,6 +80,7 @@
         <ForceSuccess>
             <TraceAttackCtrl frame="1" command="3" />
         </ForceSuccess>
+        <FuelUp ctrl="3"/>
     	<SubTree ID="EnterOffboardTree" />
 	<GetLocation target="{ctrl_info}" fixed="{takeoff_z}"/>
 

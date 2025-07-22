@@ -1,79 +1,79 @@
 <root BTCPP_format="4"> 
-    
     <BehaviorTree ID="CheckWayTree">
-        <ReactiveFallback>
-            	<CheckWayViaTp />
-            	<KeepRunningUntilFailure>
-            	<Script code="msg:='test'"/>
-            	</KeepRunningUntilFailure>
-	    </ReactiveFallback>
+        <SequenceWithMemory>
+            <ReactiveFallback>
+                    <CheckWayViaTp />
+                    <KeepRunningUntilFailure>
+                    <Script code="msg:='test'"/>
+                    </KeepRunningUntilFailure>
+            </ReactiveFallback>
+            <CommandStatus rspType="2" status="3"/>
+            <SubTree ID="KeepRunTree" />
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+    <BehaviorTree ID="LineTree">
+        <SequenceWithMemory>
+            <SubTree ID="StartLineTree" />
+            <SubTree ID="CheckWayTree" />
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+    <BehaviorTree ID="LineContinueTree">
+        <SequenceWithMemory>
+            <SubTree ID="EnterOffboardTree" />
+            <ForceSuccess>
+                <NavwayCtrl frame="1" command="2"/>
+            </ForceSuccess>
+            <SubTree ID="CheckWayTree" />
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+    <BehaviorTree ID="LinePauseTree">
+        <SequenceWithMemory>
+            <ForceSuccess>
+                <NavwayCtrl frame="1" command="1"/>
+            </ForceSuccess>
+            <SubTree ID="KeepRunTree" />
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+    <BehaviorTree ID="LineStopTree">
+        <SequenceWithMemory>
+            <NavwayCtrl frame="1" command="3"/>
+            <SubTree ID="LoitTree" />
+        </SequenceWithMemory>
     </BehaviorTree>
 
     <BehaviorTree ID="Navline-start">
-        <SequenceWithMemory>
-            <SubTree ID="StartLineTree" />
-            <SubTree ID="KeepRunTree" />
-        </SequenceWithMemory>
+        <SubTree ID="LineTree" />
     </BehaviorTree>
 
     <BehaviorTree ID="Navline-continue">
-        <SequenceWithMemory>
-            <SubTree ID="EnterOffboardTree" />
-            <ForceSuccess>
-                <NavwayCtrl frame="1" command="2"/>
-            </ForceSuccess>
-            <SubTree ID="KeepRunTree" />
-        </SequenceWithMemory>
+        <SubTree ID="LineContinueTree" />      
     </BehaviorTree>
 
-     <BehaviorTree ID="Navline-pause">
-     
-          <SequenceWithMemory>
-            <ForceSuccess>
-                <NavwayCtrl frame="1" command="1"/>
-            </ForceSuccess>
-            <SubTree ID="KeepRunTree" />
-        </SequenceWithMemory>
+    <BehaviorTree ID="Navline-pause">
+        <SubTree ID="LinePauseTree" />
     </BehaviorTree>
 
     <BehaviorTree ID="Navline-stop">
-        <SequenceWithMemory>
-            <NavwayCtrl frame="1" command="3"/>
-            <SubTree ID="LoitTree" />
-        </SequenceWithMemory>
+        <SubTree ID="LineStopTree" />
     </BehaviorTree>
 
      <BehaviorTree ID="SrchViaLine-start">
-        <SequenceWithMemory>
-            <SubTree ID="StartLineTree" />
-            <SubTree ID="KeepRunTree" />
-        </SequenceWithMemory>
+        <SubTree ID="LineTree" />
     </BehaviorTree>
 
     <BehaviorTree ID="SrchViaLine-continue">
-        <SequenceWithMemory>
-            <SubTree ID="EnterOffboardTree" />
-            <ForceSuccess>
-                <NavwayCtrl frame="1" command="2"/>
-            </ForceSuccess>
-            <SubTree ID="KeepRunTree" />
-        </SequenceWithMemory>
+        <SubTree ID="LineContinueTree" />  
     </BehaviorTree>
  
-     <BehaviorTree ID="SrchViaLine-pause">
-     
-          <SequenceWithMemory>
-            <ForceSuccess>
-                <NavwayCtrl frame="1" command="1"/>
-            </ForceSuccess>
-            <SubTree ID="KeepRunTree" />
-        </SequenceWithMemory>
+    <BehaviorTree ID="SrchViaLine-pause">
+        <SubTree ID="LinePauseTree" />
     </BehaviorTree>
 
     <BehaviorTree ID="SrchViaLine-stop">
-        <SequenceWithMemory>
-            <NavwayCtrl frame="1" command="3"/>
-            <SubTree ID="LoitTree" />
-        </SequenceWithMemory>
+        <SubTree ID="LineStopTree" />
     </BehaviorTree>
 </root>

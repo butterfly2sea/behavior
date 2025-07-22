@@ -35,7 +35,7 @@ namespace zyzn{
         }
 
         float CUtility::getYawN2PFrmLoc(float x1,float y1,float x2,float y2){
-            float yaw =getYawFrmLoc(x1,y1,x2,y2);
+            float yaw =M_PI_2-atan2( x2 - x1,y2 - y1);
             if (yaw > M_PI)
             {
                 yaw -= (float)M_PI * 2;

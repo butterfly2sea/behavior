@@ -21,8 +21,8 @@ int main(int argc, char ** argv)
   RCLCPP_INFO(rclcpp::get_logger("rclcpp"),"start behavior-node build at:%s %s",__DATE__,__TIME__);
   std::shared_ptr<rclcpp::Node> treeNode = std::make_shared<rclcpp::Node>("tree_node");
   std::shared_ptr<rclcpp::Node> routeNode = std::make_shared<rclcpp::Node>("route_node");
-  auto decisionNode = std::make_shared<zyzn::ctrl::CTaskDecision>("decision_node");
-  zyzn::info::CParam::m_glbNode = (rclcpp::Node::SharedPtr)decisionNode;
+  auto decisionNode = std::make_shared<zyzn::ctrl::CTaskDecision>("decision_node",actMgr,plgMgr);
+  zyzn::info::CParam::rosNode() = treeNode;
   decisionNode.get()->setNode(routeNode);
   decisionNode.get()->regisAllNode(exePath);
   rclcpp::executors::MultiThreadedExecutor exetor;

@@ -38,7 +38,7 @@ namespace zyzn
                             const BT::NodeConfig &conf);
             static PortsList providedPorts();
 
-            static void regist(BehaviorTreeFactory &factory);
+
 
             /**
              * @brief 定时执行函数，会由父节点调用

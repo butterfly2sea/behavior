@@ -1,12 +1,13 @@
 #include "../../include/set/SetTraceAttackObj.hpp"
-#include "../../include/info/Param.hpp"
+#include <info/Param.hpp>
+#include <plugin/base_plugin.hpp>
 namespace zyzn{
     namespace set{
         custom_msgs::msg::ObjectLocation CSetTraceAttackObj::m_s_attckObj;
         CSetTraceAttackObj::STgtInfo CSetTraceAttackObj::m_s_tgt;
         CSetTraceAttackObj::CSetTraceAttackObj(const std::string &instance_name,
         const BT::NodeConfig &conf) : SyncActionNode(instance_name, conf),m_pubTraceAttackObj(nullptr){
-            m_pubTraceAttackObj = info::CParam::m_glbNode->create_publisher<custom_msgs::msg::ObjectLocation>(
+            m_pubTraceAttackObj = info::CParam::rosNode()->create_publisher<custom_msgs::msg::ObjectLocation>(
              "inner/set/trace_attack_object", 10);
             std::string name = "tgtId";
             getInput<std::string>("tgtIdParam", name);
@@ -19,9 +20,9 @@ namespace zyzn{
 
         PortsList CSetTraceAttackObj::providedPorts(){
             return {InputPort<bool>("filter"),
-                    InputPort<std::string>("tgtIdParam"),//json任务中目标参数名
+                    InputPort<std::string>("tgtIdParam"),//json浠诲姟涓洰鏍囧弬鏁板悕
 
-                    InputPort<std::string>("srcIdParam"),//json任务中目标来源的飞机id
+                    InputPort<std::string>("srcIdParam"),//json浠诲姟涓洰鏍囨潵婧愮殑椋炴満id
             };
         }
 

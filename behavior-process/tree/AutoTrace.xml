@@ -15,8 +15,6 @@
         <SequenceWithMemory>
             <GetLocation target="{ctrl_info}" zoffset="0"/>
             <SubTree ID="EnterOffboardTree" />
-            <SetDstPt target="{ctrl_info}" step="0" />
-            <SubTree ID="GoToCurLoc" _autoremap="true" />
             
             <SetDstPt target="{ctrl_info}" step="{step_val}" />
 	    <KeepRunningUntilFailure>
@@ -58,6 +56,7 @@
 		    <OffboardCtrl ctrl="{ctrl_info}"/>
 	       </Delay>
 	    </KeepRunningUntilFailure>
+
         </SequenceWithMemory>
     </BehaviorTree>
 
@@ -66,11 +65,9 @@
             <ForceSuccess>
                 <NavwayCtrl frame="1" command="3"/>
             </ForceSuccess>
-            <ForceSuccess>
-            	 <TraceAttackCtrl frame="1" command="3" />
-            </ForceSuccess>
-            <SubTree ID="GoToDstTree" />
-        
+            <FuelUp ctrl="3"/>
+            <SubTree ID="SearchPtTree" />
+             
         </SequenceWithMemory>
     </BehaviorTree>
 

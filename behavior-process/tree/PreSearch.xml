@@ -2,43 +2,55 @@
 
     <BehaviorTree ID="StartLineTree">
         <SequenceWithMemory>
-            <GetLocation target="{ctrl_info}" zoffset="0"/>
 
-	        <SetLine antiDis="0.6" delay="{time_info}"/>   
+        <GetLocation target="{ctrl_info}" zoffset="0" />
+        <SetTriggers delay="{time_info}" /> 
+	    <SetLine antiDis="0.6"  type="1022"/>   
 
-	        <SubTree ID="EnterOffboardTree" />
+	    <SubTree ID="EnterOffboardTree" />
            
-            <ReactiveFallback>
-                <CheckStartTask delay="{time_info}" />
-                <KeepRunningUntilFailure>
-                    <Delay delay_msec="30">    
-                        <OffboardCtrl ctrl="{ctrl_info}"/>                      
+	    <ReactiveFallback>
+	        <CheckStartTask delay="{time_info}" />
+	        <KeepRunningUntilFailure>
+	    	    <Delay delay_msec="30">    
+                    <OffboardCtrl ctrl="{ctrl_info}"/>                      
                     </Delay>
-                </KeepRunningUntilFailure>
-                
-            </ReactiveFallback>
-            
-            <ForceSuccess>
-                <TraceAttackCtrl frame="1" command="3" />
-            </ForceSuccess>
-            <ReactiveFallback>
-                <NavwayCtrl frame="1" command="0"/>
-                <SubTree ID="EnterOffboardTree" />
-            </ReactiveFallback>
+               </KeepRunningUntilFailure>
+               
+	    </ReactiveFallback>
 
+	    <ReactiveFallback>
+	        <CheckAllArriveDst   dstyaw="{yaw_val}"/>
+	        <KeepRunningUntilFailure>
+	        <Sequence>
+	        <Delay delay_msec="30">    
+                    <OffboardCtrl ctrl="{ctrl_info}" yaw="{yaw_val}"/>                      
+                </Delay>
+                </Sequence>
+                </KeepRunningUntilFailure>
+	    </ReactiveFallback>	    
+	    	    
+	    <FuelUp ctrl="3"/>
+	    <SetLine type="1" /> 
+	    
+        <ReactiveFallback>
+		<NavwayCtrl frame="1" command="0"/>
+		<SubTree ID="EnterOffboardTree" />
+        </ReactiveFallback>
+	
         </SequenceWithMemory>
     </BehaviorTree>
 
 
     <BehaviorTree ID="PreSearchTree">
         <SequenceWithMemory>
-
             <SubTree ID="StartLineTree" />
             <ReactiveFallback>
             	<CheckWayViaTp />
             	<KeepRunningUntilFailure>
             	<Script code="msg:='test'"/>
             	</KeepRunningUntilFailure>
+
 	        </ReactiveFallback>
         </SequenceWithMemory>
     </BehaviorTree>

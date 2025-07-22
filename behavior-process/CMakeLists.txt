@@ -29,59 +29,31 @@ file (GLOB SET_SRC "src/set/*.cpp")
 file (GLOB GET_SRC "src/get/*.cpp")
 file (GLOB CTR_SRC "src/control/*.cpp")
 file (GLOB CHECK_SRC "src/check/*.cpp")
-file (GLOB UTILITY_SRC "src/utility/*.cpp")
 file (GLOB MGR_SRC "src/manage/*.cpp")
 file (GLOB STS_SRC "src/status/*.cpp")
 file (GLOB ACT_SRC "src/action_libs/*.cpp")
-include_directories($ENV{COMMON} ${rclcpp_INCLUDE_DIRS} ${rclcpp_INCLUDE_DIRS}/include ${custom_msgs_INCLUDE_DIRS} 
+include_directories( ${rclcpp_INCLUDE_DIRS} ${rclcpp_INCLUDE_DIRS}/include ${custom_msgs_INCLUDE_DIRS} 
 ${custom_msgs_INCLUDE_DIRS}/include ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/include/action_libs
-${std_msgs_INCLUDE_DIRS} ${std_msgs_INCLUDE_DIRS}/include
+${std_msgs_INCLUDE_DIRS} ${std_msgs_INCLUDE_DIRS}/include /usr/include/behavior_lib
 ${sensor_msgs_INCLUDE_DIRS} ${sensor_msgs_INCLUDE_DIRS}/include ${mavros_msgs_INCLUDE_DIRS} ${mavros_msgs_INCLUDE_DIRS}/include
   ${PROJECT_SOURCE_DIR}/../fcu_comm/src/lib ${PROJECT_SOURCE_DIR}/../fcu_comm/src/lib/matrix)
 
-add_library(core_plugin SHARED src/set/SetTrigger.cpp src/set/SetLine.cpp ${GET_SRC} ${CTR_SRC}
- ${UTILITY_SRC} src/check/CheckArriveDst.cpp src/check/CheckStartTask.cpp ${STS_SRC} 
- src/action_libs/core_plugin.cpp src/param.cpp )
 
-add_library(dest_search_plugin SHARED src/set/SetDstPt.cpp src/action_libs/dest_search_plugin.cpp)
-add_library(navline_plugin SHARED src/check/CheckWayViaTp.cpp src/action_libs/navline_plugin.cpp)
-add_library(takeoff_plugin SHARED src/action_libs/takeoff_plugin.cpp)
-add_library(trace_attack_plugin SHARED src/set/SetTraceAttackObj.cpp src/check/CheckQuitSearch.cpp 
+add_library(trace_attack_plugin SHARED ${SET_SRC} ${GET_SRC} ${CTR_SRC} ${CHECK_SRC} ${MGR_SRC} ${STS_SRC} 
 src/action_libs/trace_attack_plugin.cpp)
-add_library(topic_trans_plugin SHARED src/control/TopicTrans.cpp src/action_libs/topic_trans_plugin.cpp)
 
-add_executable(behavior-node src/behavior-node.cpp src/TaskDecision.cpp 
-../fcu_comm/src/lib/geo/geo.cpp ${MGR_SRC} ) 
+add_executable(behavior-node src/behavior-node.cpp  
+../fcu_comm/src/lib/geo/geo.cpp ) 
 ament_target_dependencies(behavior-node rclcpp std_msgs sensor_msgs mavros_msgs custom_msgs)
-ament_target_dependencies(core_plugin rclcpp std_msgs sensor_msgs mavros_msgs custom_msgs)
-target_link_libraries(core_plugin boost_filesystem)
-target_link_libraries(dest_search_plugin core_plugin)
-target_link_libraries(navline_plugin core_plugin)
-target_link_libraries(takeoff_plugin core_plugin)
-target_link_libraries(trace_attack_plugin core_plugin)
-target_link_libraries(topic_trans_plugin core_plugin)
 
-target_link_libraries(behavior-node behaviortree_cpp ${rclcpp_LIBRARIES} tiny_xml json boost_filesystem core_plugin)
+target_link_libraries(trace_attack_plugin core_plugin)
+
+target_link_libraries(behavior-node behaviortree_cpp ${rclcpp_LIBRARIES} json boost_filesystem core_plugin)
 target_include_directories(behavior-node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
 
-  install(TARGETS core_plugin
-  DESTINATION lib/${PROJECT_NAME}/tree)
-
-  install(TARGETS dest_search_plugin
-  DESTINATION lib/${PROJECT_NAME}/tree)
-
-  install(TARGETS takeoff_plugin
-  DESTINATION lib/${PROJECT_NAME}/tree)
-
-  install(TARGETS navline_plugin
-  DESTINATION lib/${PROJECT_NAME}/tree)
-
   install(TARGETS trace_attack_plugin
-  DESTINATION lib/${PROJECT_NAME}/tree)
-
-  install(TARGETS topic_trans_plugin
   DESTINATION lib/${PROJECT_NAME}/tree)
 
   install(TARGETS behavior-node
@@ -90,9 +62,6 @@ target_include_directories(behavior-node PUBLIC
   install(DIRECTORY tree/ DESTINATION lib/${PROJECT_NAME}/tree
         FILES_MATCHING PATTERN "*.*")
 
-  add_custom_command(
-    TARGET core_plugin POST_BUILD
-    COMMAND echo $ENV{USER} | sudo -S cp $<TARGET_FILE:core_plugin> /lib/)
 
 add_definitions("-Wall -g")
 if(BUILD_TESTING)
