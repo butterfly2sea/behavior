@@ -1,0 +1,87 @@
+<root BTCPP_format="4">
+
+    <BehaviorTree ID="RallyGoToDstTree">
+        <SequenceWithMemory>
+            <GetLocation target="{ctrl_info}" zoffset="0"/>
+            <SubTree ID="EnterOffboardTree" />
+
+            <SetRallyDst target="{ctrl_info}" step="{step_val}" />
+            <KeepRunningUntilFailure>
+                <Delay delay_msec="30">
+                    <OffboardCtrl ctrl="{ctrl_info}"/>
+                </Delay>
+            </KeepRunningUntilFailure>
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+    <BehaviorTree ID="RallyTree">
+        <SequenceWithMemory>
+            <ForceSuccess>
+                <NavwayCtrl frame="1" command="3"/>
+            </ForceSuccess>
+            <FuelUp ctrl="3"/>
+
+            <!-- 分步飞行到目标点 -->
+            <!-- 第1步：上升到障碍高度 -->
+            <SubTree ID="RallyGoToDstTree" _autoremap="true" step_val="0"/>
+            <ReactiveFallback>
+                <CheckArriveDst target="{ctrl_info}" arvdis="2.0"/>
+                <KeepRunningUntilFailure>
+                    <Delay delay_msec="30">
+                        <OffboardCtrl ctrl="{ctrl_info}"/>
+                    </Delay>
+                </KeepRunningUntilFailure>
+            </ReactiveFallback>
+
+            <!-- 第2步：飞到目标水平位置的障碍高度 -->
+            <SubTree ID="RallyGoToDstTree" _autoremap="true" step_val="1"/>
+            <ReactiveFallback>
+                <CheckArriveDst target="{ctrl_info}" arvdis="2.0"/>
+                <KeepRunningUntilFailure>
+                    <Delay delay_msec="30">
+                        <OffboardCtrl ctrl="{ctrl_info}"/>
+                    </Delay>
+                </KeepRunningUntilFailure>
+            </ReactiveFallback>
+
+            <!-- 第3步：下降到目标高度 -->
+            <SubTree ID="RallyGoToDstTree" _autoremap="true" step_val="2"/>
+            <ReactiveFallback>
+                <CheckArriveDst target="{ctrl_info}" arvdis="2.0"/>
+                <KeepRunningUntilFailure>
+                    <Delay delay_msec="30">
+                        <OffboardCtrl ctrl="{ctrl_info}"/>
+                    </Delay>
+                </KeepRunningUntilFailure>
+            </ReactiveFallback>
+
+            <!-- 保持在集结点 -->
+            <SubTree ID="KeepRunTree" />
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+    <BehaviorTree ID="Rally-start">
+        <SequenceWithMemory>
+            <SubTree ID="RallyTree" />
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+    <BehaviorTree ID="Rally-pause">
+        <SequenceWithMemory>
+            <SubTree ID="LoitTree" />
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+    <BehaviorTree ID="Rally-continue">
+        <SequenceWithMemory>
+            <SubTree ID="RallyTree" />
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+    <BehaviorTree ID="Rally-stop">
+        <SequenceWithMemory>
+            <SubTree ID="LoitTree" />
+        </SequenceWithMemory>
+    </BehaviorTree>
+
+</root>

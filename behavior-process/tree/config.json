@@ -1,26 +1,31 @@
 {
-    "plugins":[
-        {
-            "name":"trace_attack_plugin",
-            "actions":["FuelUp"]
-        }
-    ],
-    "xmlFiles":[
-            "FlightmodeCtrl.xml",
-            "Attack.xml",
-            "Ctrl.xml",
-            "PreSearch.xml",
-            "Search.xml",
-            "Trace.xml",
-            "AutoTrace.xml",
-            "FuelUp.xml"
-    ],
-    "coreActions":[
+  "plugins":[
+    {
+      "name":"trace_attack_plugin",
+      "actions":["FuelUp"]
+    },
+    {
+      "name":"rally_plugin",
+      "actions":["Rally"]
+    }
+  ],
+  "xmlFiles":[
+    "FlightmodeCtrl.xml",
+    "Attack.xml",
+    "Ctrl.xml",
+    "PreSearch.xml",
+    "Search.xml",
+    "Trace.xml",
+    "AutoTrace.xml",
+    "FuelUp.xml",
+    "Rally.xml"
+  ],
+  "coreActions":[
     "Loiter",
     "Land",
     "RtlDirect",
     "TakeOff",
     "AutoTrace",
     "Navline","SrchViaLine"
-]
+  ]
 }
