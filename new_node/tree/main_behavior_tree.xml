@@ -1,0 +1,355 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root BTCPP_format="4">
+    <!-- 主行为树 - 统一的任务执行流程控制 -->
+    <BehaviorTree ID="MainBehaviorTree">
+        <ReactiveSequence name="MainSequence">
+            <!-- 1. 系统初始化检查 -->
+            <Fallback name="SystemInitialization">
+                <CheckSystemState expected_state="EXECUTING" />
+                <Sequence name="InitSystem">
+                    <SystemSelfCheck
+                            check_sensors="true"
+                            check_actuators="true"
+                            check_communication="true"
+                            check_battery="true"
+                            check_result="{system_ready}" />
+
+                    <Condition>
+                        <CheckBatteryCondition min_percentage="25.0" />
+                    </Condition>
+
+                    <Condition>
+                        <CheckGPSCondition min_fix_type="3" min_satellites="6" />
+                    </Condition>
+
+                    <SetHomeAction use_current="true" />
+                </Sequence>
+            </Fallback>
+
+            <!-- 2. 主要任务控制循环 -->
+            <ReactiveFallback name="MissionControl">
+                <!-- 紧急情况处理 -->
+                <Sequence name="EmergencyHandling">
+                    <CheckEmergencyCondition
+                            critical_battery="10.0"
+                            check_communication="true"
+                            max_wind_speed="15.0" />
+
+                    <EmergencyControl
+                            emergency_type="RTL"
+                            immediate="true" />
+                </Sequence>
+
+                <!-- 地面站指令响应 -->
+                <ReactiveSequence name="GroundStationCommandHandler">
+                    <CheckGroundStationCommand
+                            expected_command=""
+                            command_timeout="1.0"
+                            consume_command="false" />
+
+                    <Switch variable="{ground_station_command}">
+                        <!-- 起飞指令 -->
+                        <Case key="TakeOff">
+                            <SubTree ID="TakeOffTree" />
+                        </Case>
+
+                        <!-- 降落指令 -->
+                        <Case key="Land">
+                            <SubTree ID="LandTree" />
+                        </Case>
+
+                        <!-- 导航线飞行指令 -->
+                        <Case key="Navline">
+                            <SubTree ID="NavlineTree" />
+                        </Case>
+
+                        <!-- 模式搜索指令 -->
+                        <Case key="PatternSearch">
+                            <SubTree ID="PatternSearchTree" />
+                        </Case>
+
+                        <!-- 沿线搜索指令 -->
+                        <Case key="SrchViaLine">
+                            <SubTree ID="SearchViaLineTree" />
+                        </Case>
+
+                        <!-- 编队飞行指令 -->
+                        <Case key="FormFly">
+                            <SubTree ID="FormationFlyTree" />
+                        </Case>
+
+                        <!-- 自动跟踪指令 -->
+                        <Case key="AutoTrace">
+                            <SubTree ID="AutoTraceTree" />
+                        </Case>
+
+                        <!-- 悬停指令 -->
+                        <Case key="Hover">
+                            <SubTree ID="LoiterTree" />
+                        </Case>
+
+                        <!-- 紧急停止指令 -->
+                        <Case key="Emergency">
+                            <EmergencyStopAction />
+                        </Case>
+                    </Switch>
+                </ReactiveSequence>
+
+                <!-- 默认状态：保持当前状态或执行基本监控 -->
+                <SubTree ID="IdleMonitoringTree" />
+            </ReactiveFallback>
+        </ReactiveSequence>
+    </BehaviorTree>
+
+    <!-- 起飞任务子树 -->
+    <BehaviorTree ID="TakeOffTree">
+        <Sequence name="TakeOffSequence">
+            <!-- 起飞前检查 -->
+            <CheckTakeoffReadyCondition
+                    min_battery="25.0"
+                    min_gps_fix="3"
+                    check_sensors="true" />
+
+            <!-- 解锁飞机 -->
+            <LockControl state="1" />
+
+            <!-- 设置起飞模式 -->
+            <FlightModeControl mode="TAKEOFF" param7="{alt}" />
+
+            <!-- 等待起飞完成 -->
+            <TakeOffAction alt="{alt}" />
+
+            <!-- 切换到Offboard模式 -->
+            <FlightModeControl mode="OFFBOARD" />
+
+            <!-- 短暂悬停确认 -->
+            <LoiterAction duration="3.0" />
+        </Sequence>
+    </BehaviorTree>
+
+    <!-- 降落任务子树 -->
+    <BehaviorTree ID="LandTree">
+        <Sequence name="LandSequence">
+            <!-- 降落前检查 -->
+            <CheckLandingCondition
+                    min_altitude="2.0"
+                    check_ground_clear="true"
+                    landing_zone_radius="10.0" />
+
+            <!-- 执行降落 -->
+            <LandAction descent_rate="1.0" />
+
+            <!-- 降落后上锁 -->
+            <LockControl state="0" />
+        </Sequence>
+    </BehaviorTree>
+
+    <!-- 导航线飞行子树 -->
+    <BehaviorTree ID="NavlineTree">
+        <Sequence name="NavlineSequence">
+            <!-- 设置航线参数 -->
+            <SetLineParameters
+                    vehiTypParam="vehiType"
+                    spdParam="spd"
+                    disParam="arvDis"
+                    ptTypParam="pointTag"
+                    ptsParam="wayPoints"
+                    lpsParam="loops" />
+
+            <!-- 设置编队偏移 -->
+            <SetFormationOffset offsetParam="formOffset" />
+
+            <!-- 确保处于正确的飞行模式 -->
+            <LockControl state="1" />
+            <FlightModeControl mode="OFFBOARD" />
+
+            <!-- 执行导航线飞行 -->
+            <NavlineAction
+                    wayPoints="{wayPoints}"
+                    spd="{spd}"
+                    loops="{loops}"
+                    arvDis="{arvDis}" />
+        </Sequence>
+    </BehaviorTree>
+
+    <!-- 模式搜索子树 -->
+    <BehaviorTree ID="PatternSearchTree">
+        <Sequence name="PatternSearchSequence">
+            <!-- 设置搜索参数 -->
+            <SetSearchParameters
+                    areaPointsParam="areaPoints"
+                    spdParam="spd"
+                    tgtClsParam="tgtCls"
+                    ptTypParam="pointTag" />
+
+            <!-- 确保处于搜索模式 -->
+            <LockControl state="1" />
+            <FlightModeControl mode="OFFBOARD" />
+
+            <!-- 执行模式搜索循环 -->
+            <ReactiveFallback name="SearchLoop">
+                <!-- 检查是否退出搜索 -->
+                <CheckQuitSearch
+                        max_search_time="600"
+                        quit_on_target_found="true"
+                        target_class="{tgtCls}"
+                        confidence_threshold="0.8" />
+
+                <!-- 继续搜索 -->
+                <PatternSearchAction
+                        areaPoints="{areaPoints}"
+                        pattern="GRID"
+                        spd="{spd}"
+                        altitude="50.0"
+                        tgtCls="{tgtCls}"
+                        coverage_width="50.0" />
+            </ReactiveFallback>
+        </Sequence>
+    </BehaviorTree>
+
+    <!-- 沿线搜索子树 -->
+    <BehaviorTree ID="SearchViaLineTree">
+        <Sequence name="SearchViaLineSequence">
+            <!-- 设置搜索参数 -->
+            <SetSearchParameters
+                    areaPointsParam="areaPoints"
+                    spdParam="spd"
+                    tgtClsParam="tgtCls"
+                    ptTypParam="pointTag" />
+
+            <!-- 设置编队偏移 -->
+            <SetFormationOffset offsetParam="formOffset" />
+
+            <!-- 确保处于搜索模式 -->
+            <LockControl state="1" />
+            <FlightModeControl mode="OFFBOARD" />
+
+            <!-- 执行沿线搜索循环 -->
+            <ReactiveFallback name="LineSearchLoop">
+                <!-- 检查是否退出搜索 -->
+                <CheckQuitSearch
+                        max_search_time="600"
+                        quit_on_target_found="true"
+                        target_class="{tgtCls}"
+                        confidence_threshold="0.8" />
+
+                <!-- 继续沿线搜索 -->
+                <SearchViaLineAction
+                        areaPoints="{areaPoints}"
+                        spd="{spd}"
+                        tgtCls="{tgtCls}"
+                        search_width="100.0"
+                        search_height="50.0" />
+            </ReactiveFallback>
+        </Sequence>
+    </BehaviorTree>
+
+    <!-- 编队飞行子树 -->
+    <BehaviorTree ID="FormationFlyTree">
+        <Sequence name="FormationFlySequence">
+            <!-- 设置编队成员 -->
+            <SetFormationMembers
+                    member_ids="{groupMembers}"
+                    leader_id="0" />
+
+            <!-- 编队集结 -->
+            <FormationAssemble
+                    assembly_point="{assemblyPoint}"
+                    assembly_radius="50.0"
+                    assembly_altitude="100.0"
+                    timeout="300.0" />
+
+            <!-- 切换到目标编队队形 -->
+            <FormationSwitch
+                    formation_type="{formationType}"
+                    formation_spacing="20.0"
+                    transition_time="10.0" />
+
+            <!-- 执行编队飞行 -->
+            <FormationFlyAction
+                    waypoints="{wayPoints}"
+                    speed="{spd}"
+                    offsets="{formOffset}"
+                    leader_id="0"
+                    maintain_formation="true" />
+        </Sequence>
+    </BehaviorTree>
+
+    <!-- 自动跟踪子树 -->
+    <BehaviorTree ID="AutoTraceTree">
+        <Sequence name="AutoTraceSequence">
+            <!-- 启动跟踪控制 -->
+            <TraceAttackControl
+                    frame="1"
+                    command="1"
+                    mode="0"
+                    target_id="{target_id}" />
+
+            <!-- 跟踪循环 -->
+            <KeepRunningUntilFailure>
+                <ReactiveFallback name="TrackingLoop">
+                    <!-- 检查是否停止跟踪 -->
+                    <CheckGroundStationCommand expected_command="stop" />
+
+                    <!-- 检查目标是否丢失 -->
+                    <CheckTargetTracking
+                            target_id="{target_id}"
+                            max_track_age="5.0"
+                            min_track_quality="0.6" />
+
+                    <!-- 执行目标跟踪 -->
+                    <TargetTrackingAction
+                            target_id="{target_id}"
+                            track_distance="30.0"
+                            track_altitude="50.0"
+                            continuous_track="true" />
+                </ReactiveFallback>
+            </KeepRunningUntilFailure>
+        </Sequence>
+    </BehaviorTree>
+
+    <!-- 悬停监控子树 -->
+    <BehaviorTree ID="LoiterTree">
+        <Sequence name="LoiterSequence">
+            <!-- 确保处于悬停模式 -->
+            <FlightModeControl mode="LOITER" />
+
+            <!-- 持续悬停直到收到新指令 -->
+            <KeepRunningUntilFailure>
+                <ReactiveFallback name="HoverLoop">
+                    <!-- 检查是否有新的地面站指令 -->
+                    <CheckGroundStationCommand expected_command="" />
+
+                    <!-- 继续悬停 -->
+                    <LoiterAction duration="1.0" />
+                </ReactiveFallback>
+            </KeepRunningUntilFailure>
+        </Sequence>
+    </BehaviorTree>
+
+    <!-- 空闲监控子树 -->
+    <BehaviorTree ID="IdleMonitoringTree">
+        <Sequence name="IdleMonitoringSequence">
+            <!-- 系统健康检查 -->
+            <ReactiveFallback name="HealthMonitoring">
+                <!-- 检查是否需要返航 -->
+                <Sequence name="CheckRTLConditions">
+                    <CheckRTLCondition
+                            battery_threshold="30.0"
+                            distance_threshold="1000.0"
+                            mission_timeout="1800" />
+
+                    <RTLAction rtl_altitude="50.0" />
+                </Sequence>
+
+                <!-- 基本状态维持 -->
+                <AlwaysSuccess>
+                    <Delay delay_msec="1000">
+                        <ForceSuccess />
+                    </Delay>
+                </AlwaysSuccess>
+            </ReactiveFallback>
+        </Sequence>
+    </BehaviorTree>
+
+</root>
