@@ -1,476 +1,316 @@
-#include "behavior_node/actions/flight_actions.hpp"
+#include "behavior_node/conditions/flight_conditions.hpp"
+#include <log/Logger.hpp>
+#include <cmath>
 
-#include <chrono>
+namespace behavior_node {
 
-// ============= LockControl 实现 =============
+// ================================ CheckFlightReadyCondition ================================
 
-BT::NodeStatus LockControl::execute() {
-  int state;
-  if (!getInputValue<int>("state").assign_to(state)) {
-    logError("Failed to get state parameter");
-    return BT::NodeStatus::FAILURE;
-  }
+CheckFlightReadyCondition::CheckFlightReadyCondition(const std::string& n, const BT::NodeConfig& config,
+                                                     std::shared_ptr<NodeDependencies> deps)
+    : BaseConditionNode(n, config, deps) {
+  txtLog().debug("FLIGHT CheckFlightReadyCondition created: %s", n.c_str());
+}
 
-  logInfo("Lock control: %s", state ? "unlock" : "lock");
+BT::PortsList CheckFlightReadyCondition::providedPorts() {
+  return {
+      BT::InputPort<float>("min_battery_level", 20.0f, "Minimum battery level percentage"),
+      BT::InputPort<bool>("check_gps", true, "Check GPS fix status"),
+      BT::InputPort<bool>("check_compass", true, "Check compass calibration"),
+      BT::InputPort<bool>("check_sensors", true, "Check sensor health")
+  };
+}
 
+BT::NodeStatus CheckFlightReadyCondition::tick() {
   try {
-    auto future = ros()->callLockControl(state == 1);
+    float min_battery = 20.0f;
+    bool check_gps = true;
+    bool check_compass = true;
+    bool check_sensors = true;
 
-    // 等待服务响应
-    if (future.wait_for(std::chrono::seconds(2)) == std::future_status::ready) {
-      auto response = future.get();
-      if (response && response->success) {
-        cache()->setArmed(state == 1);
-        logInfo("Lock control successful");
-        return BT::NodeStatus::SUCCESS;
+    getInput("min_battery_level", min_battery);
+    getInput("check_gps", check_gps);
+    getInput("check_compass", check_compass);
+    getInput("check_sensors", check_sensors);
+
+    // 检查电池电量
+    if (auto battery_state = deps_->cache->getBatteryState()) {
+      if (battery_state->percentage < min_battery) {
+        txtLog().warning("FLIGHT CheckFlightReadyCondition battery level too low: %.1f%% < %.1f%%",
+                         battery_state->percentage, min_battery);
+        return BT::NodeStatus::FAILURE;
+      }
+    } else {
+      txtLog().warning("FLIGHT CheckFlightReadyCondition no battery state available");
+      return BT::NodeStatus::FAILURE;
+    }
+
+    // 检查GPS状态
+    if (check_gps) {
+      if (auto gps_status = deps_->cache->getGPSStatus()) {
+        if (gps_status->fix_type < 3) {  // 需要3D GPS fix
+          txtLog().warning("FLIGHT CheckFlightReadyCondition GPS fix insufficient: %d", gps_status->fix_type);
+          return BT::NodeStatus::FAILURE;
+        }
+      } else {
+        txtLog().warning("FLIGHT CheckFlightReadyCondition no GPS status available");
+        return BT::NodeStatus::FAILURE;
       }
     }
 
-    logError("Lock control failed or timeout");
-    return BT::NodeStatus::FAILURE;
+    // 检查罗盘校准状态
+    if (check_compass) {
+      if (auto compass_status = deps_->cache->getCompassStatus()) {
+        if (!compass_status->calibrated) {
+          txtLog().warning("FLIGHT CheckFlightReadyCondition compass not calibrated");
+          return BT::NodeStatus::FAILURE;
+        }
+      } else {
+        txtLog().warning("FLIGHT CheckFlightReadyCondition no compass status available");
+        return BT::NodeStatus::FAILURE;
+      }
+    }
+
+    // 检查传感器健康状态
+    if (check_sensors) {
+      if (auto health_status = deps_->cache->getHealthStatus()) {
+        if (!health_status->sensors_healthy) {
+          txtLog().warning("FLIGHT CheckFlightReadyCondition sensors not healthy");
+          return BT::NodeStatus::FAILURE;
+        }
+      } else {
+        txtLog().warning("FLIGHT CheckFlightReadyCondition no health status available");
+        return BT::NodeStatus::FAILURE;
+      }
+    }
+
+    txtLog().debug("FLIGHT CheckFlightReadyCondition all checks passed");
+    return BT::NodeStatus::SUCCESS;
 
   } catch (const std::exception& e) {
-    logError("Exception in lock control: %s", e.what());
+    txtLog().error("FLIGHT CheckFlightReadyCondition exception: %s", e.what());
     return BT::NodeStatus::FAILURE;
   }
 }
 
-// ============= FlightModeControl 实现 =============
+// ================================ CheckAltitudeCondition ================================
 
-BT::NodeStatus FlightModeControl::onActionStart() {
-  std::string mode_str;
-  float param7 = 0.0f;
+CheckAltitudeCondition::CheckAltitudeCondition(const std::string& n, const BT::NodeConfig& config,
+                                               std::shared_ptr<NodeDependencies> deps)
+    : BaseConditionNode(n, config, deps) {
+  txtLog().debug("FLIGHT CheckAltitudeCondition created: %s", n.c_str());
+}
 
-  if (!getInputValue<std::string>("mode").assign_to(mode_str)) {
-    logError("Failed to get mode parameter");
-    return BT::NodeStatus::FAILURE;
-  }
+BT::PortsList CheckAltitudeCondition::providedPorts() {
+  return {
+      BT::InputPort<float>("min_altitude", 5.0f, "Minimum altitude in meters"),
+      BT::InputPort<float>("max_altitude", 500.0f, "Maximum altitude in meters"),
+      BT::InputPort<float>("tolerance", 2.0f, "Altitude tolerance in meters")
+  };
+}
 
-  getInputValue<float>("param7").assign_to(param7);
-
-  // 转换模式字符串为枚举
-  if (mode_str == "MANUAL") target_mode_ = FlightMode::MANUAL;
-  else if (mode_str == "ALTITUDE_HOLD") target_mode_ = FlightMode::ALTITUDE_HOLD;
-  else if (mode_str == "POSITION_HOLD") target_mode_ = FlightMode::POSITION_HOLD;
-  else if (mode_str == "TAKEOFF") target_mode_ = FlightMode::TAKEOFF;
-  else if (mode_str == "LAND") target_mode_ = FlightMode::LAND;
-  else if (mode_str == "LOITER") target_mode_ = FlightMode::LOITER;
-  else if (mode_str == "MISSION") target_mode_ = FlightMode::MISSION;
-  else if (mode_str == "RTL") target_mode_ = FlightMode::RTL;
-  else if (mode_str == "OFFBOARD") target_mode_ = FlightMode::OFFBOARD;
-  else if (mode_str == "STABILIZE") target_mode_ = FlightMode::STABILIZE;
-  else {
-    logError("Invalid flight mode: %s", mode_str.c_str());
-    return BT::NodeStatus::FAILURE;
-  }
-
-  logInfo("Setting flight mode to: %s", mode_str.c_str());
-
+BT::NodeStatus CheckAltitudeCondition::tick() {
   try {
-    service_future_ = ros()->callFlightModeControl(static_cast<uint8_t>(target_mode_), param7);
-    waiting_for_response_ = true;
+    float min_alt = 5.0f;
+    float max_alt = 500.0f;
+    float tolerance = 2.0f;
 
-    return BT::NodeStatus::RUNNING;
+    getInput("min_altitude", min_alt);
+    getInput("max_altitude", max_alt);
+    getInput("tolerance", tolerance);
+
+    auto current_pos = deps_->cache->getCurrentPosition();
+    if (!current_pos) {
+      txtLog().warning("FLIGHT CheckAltitudeCondition no position available");
+      return BT::NodeStatus::FAILURE;
+    }
+
+    float current_alt = current_pos->z;
+
+    // 检查高度是否在允许范围内
+    if (current_alt < (min_alt - tolerance)) {
+      txtLog().warning("FLIGHT CheckAltitudeCondition altitude too low: %.2f < %.2f",
+                       current_alt, min_alt);
+      return BT::NodeStatus::FAILURE;
+    }
+
+    if (current_alt > (max_alt + tolerance)) {
+      txtLog().warning("FLIGHT CheckAltitudeCondition altitude too high: %.2f > %.2f",
+                       current_alt, max_alt);
+      return BT::NodeStatus::FAILURE;
+    }
+
+    txtLog().debug("FLIGHT CheckAltitudeCondition altitude OK: %.2f m", current_alt);
+    return BT::NodeStatus::SUCCESS;
 
   } catch (const std::exception& e) {
-    logError("Exception starting flight mode control: %s", e.what());
+    txtLog().error("FLIGHT CheckAltitudeCondition exception: %s", e.what());
     return BT::NodeStatus::FAILURE;
   }
 }
 
-BT::NodeStatus FlightModeControl::onActionRunning() {
-  if (!waiting_for_response_) {
-    // 检查当前飞行模式
-    if (cache()->getFlightMode() == target_mode_) {
-      logInfo("Flight mode successfully changed");
-      return BT::NodeStatus::SUCCESS;
-    }
+// ================================ CheckFlightModeCondition ================================
 
-    // 检查超时
-    if (isTimeout()) {
-      logError("Flight mode change timeout");
-      return BT::NodeStatus::FAILURE;
-    }
-
-    return BT::NodeStatus::RUNNING;
-  }
-
-  // 检查服务响应
-  if (service_future_.wait_for(std::chrono::milliseconds(10)) == std::future_status::ready) {
-    auto response = service_future_.get();
-    waiting_for_response_ = false;
-
-    if (response && response->success) {
-      logInfo("Flight mode control command sent successfully");
-      return BT::NodeStatus::RUNNING; // 继续等待模式切换完成
-    } else {
-      logError("Flight mode control service call failed");
-      return BT::NodeStatus::FAILURE;
-    }
-  }
-
-  return BT::NodeStatus::RUNNING;
+CheckFlightModeCondition::CheckFlightModeCondition(const std::string& n, const BT::NodeConfig& config,
+                                                   std::shared_ptr<NodeDependencies> deps)
+    : BaseConditionNode(n, config, deps) {
+  txtLog().debug("FLIGHT CheckFlightModeCondition created: %s", n.c_str());
 }
 
-void FlightModeControl::onActionHalted() {
-  waiting_for_response_ = false;
-  logInfo("Flight mode control halted");
+BT::PortsList CheckFlightModeCondition::providedPorts() {
+  return {
+      BT::InputPort<std::string>("required_mode", "OFFBOARD", "Required flight mode")
+  };
 }
 
-// ============= TakeOffAction 实现 =============
-
-BT::NodeStatus TakeOffAction::onActionStart() {
-  if (!getInputValue<float>("alt").assign_to(target_altitude_)) {
-    target_altitude_ = 10.0f; // 默认高度
-  }
-
-  logInfo("Starting takeoff to altitude: %.1f m", target_altitude_);
-
-  // 检查起飞条件
-  if (!cache()->hasValidGPS()) {
-    logError("GPS not ready for takeoff");
-    return BT::NodeStatus::FAILURE;
-  }
-
-  if (cache()->getBatteryPercentage() < 25.0f) {
-    logError("Battery too low for takeoff: %.1f%%", cache()->getBatteryPercentage());
-    return BT::NodeStatus::FAILURE;
-  }
-
+BT::NodeStatus CheckFlightModeCondition::tick() {
   try {
-    service_future_ = ros()->callTakeoffControl(target_altitude_);
-    service_called_ = true;
-    takeoff_start_time_ = std::chrono::steady_clock::now();
-
-    return BT::NodeStatus::RUNNING;
-
-  } catch (const std::exception& e) {
-    logError("Exception starting takeoff: %s", e.what());
-    return BT::NodeStatus::FAILURE;
-  }
-}
-
-BT::NodeStatus TakeOffAction::onActionRunning() {
-  // 检查服务调用结果
-  if (service_called_ &&
-      service_future_.wait_for(std::chrono::milliseconds(10)) == std::future_status::ready) {
-    auto response = service_future_.get();
-    service_called_ = false;
-
-    if (!response || !response->success) {
-      logError("Takeoff service call failed");
+    std::string required_mode;
+    if (!getInput("required_mode", required_mode)) {
+      txtLog().error("FLIGHT CheckFlightModeCondition failed to get required_mode");
       return BT::NodeStatus::FAILURE;
     }
 
-    logInfo("Takeoff command sent successfully");
-  }
-
-  // 检查起飞是否完成
-  auto current_pos = cache()->getCurrentPosition();
-  float current_altitude = -current_pos.z; // NED坐标系，z向下为正
-
-  if (current_altitude >= target_altitude_ - 1.0f) {
-    // 检查是否稳定在目标高度
-    auto elapsed = std::chrono::steady_clock::now() - takeoff_start_time_;
-    if (elapsed > std::chrono::seconds(3)) {
-      logInfo("Takeoff completed successfully at altitude: %.1f m", current_altitude);
-      return BT::NodeStatus::SUCCESS;
+    auto flight_state = deps_->cache->getFlightState();
+    if (!flight_state) {
+      txtLog().warning("FLIGHT CheckFlightModeCondition no flight state available");
+      return BT::NodeStatus::FAILURE;
     }
-  }
 
-  // 检查超时
-  if (isTimeout()) {
-    logError("Takeoff timeout");
+    // 将模式代码转换为字符串进行比较
+    std::string current_mode = flightModeToString(flight_state->mode);
+
+    if (current_mode != required_mode) {
+      txtLog().warning("FLIGHT CheckFlightModeCondition mode mismatch: %s != %s",
+                       current_mode.c_str(), required_mode.c_str());
+      return BT::NodeStatus::FAILURE;
+    }
+
+    txtLog().debug("FLIGHT CheckFlightModeCondition mode OK: %s", current_mode.c_str());
+    return BT::NodeStatus::SUCCESS;
+
+  } catch (const std::exception& e) {
+    txtLog().error("FLIGHT CheckFlightModeCondition exception: %s", e.what());
     return BT::NodeStatus::FAILURE;
   }
-
-  return BT::NodeStatus::RUNNING;
 }
 
-void TakeOffAction::onActionHalted() {
-  service_called_ = false;
-  logInfo("Takeoff action halted");
+std::string CheckFlightModeCondition::flightModeToString(uint8_t mode) const {
+  static const std::map<uint8_t, std::string> mode_map = {
+      {0, "MANUAL"},
+      {1, "ALTCTL"},
+      {2, "POSCTL"},
+      {3, "AUTO"},
+      {4, "ACRO"},
+      {5, "OFFBOARD"},
+      {6, "STABILIZED"},
+      {7, "RATTITUDE"},
+      {8, "LAND"},
+      {9, "RTL"},
+      {10, "MISSION"},
+      {11, "LOITER"}
+  };
+
+  auto it = mode_map.find(mode);
+  return (it != mode_map.end()) ? it->second : "UNKNOWN";
 }
 
-// ============= LandAction 实现 =============
+// ================================ CheckArmedCondition ================================
 
-BT::NodeStatus LandAction::onActionStart() {
-  if (!getInputValue<float>("descent_rate").assign_to(descent_rate_)) {
-    descent_rate_ = 1.0f; // 默认下降速度
-  }
+CheckArmedCondition::CheckArmedCondition(const std::string& n, const BT::NodeConfig& config,
+                                         std::shared_ptr<NodeDependencies> deps)
+    : BaseConditionNode(n, config, deps) {
+  txtLog().debug("FLIGHT CheckArmedCondition created: %s", n.c_str());
+}
 
-  logInfo("Starting landing with descent rate: %.1f m/s", descent_rate_);
+BT::PortsList CheckArmedCondition::providedPorts() {
+  return {
+      BT::InputPort<bool>("should_be_armed", true, "Expected armed state")
+  };
+}
 
+BT::NodeStatus CheckArmedCondition::tick() {
   try {
-    service_future_ = ros()->callLandControl();
-    service_called_ = true;
-    land_start_time_ = std::chrono::steady_clock::now();
+    bool should_be_armed = true;
+    getInput("should_be_armed", should_be_armed);
 
-    return BT::NodeStatus::RUNNING;
+    auto flight_state = deps_->cache->getFlightState();
+    if (!flight_state) {
+      txtLog().warning("FLIGHT CheckArmedCondition no flight state available");
+      return BT::NodeStatus::FAILURE;
+    }
+
+    bool is_armed = flight_state->armed;
+
+    if (is_armed != should_be_armed) {
+      txtLog().warning("FLIGHT CheckArmedCondition armed state mismatch: %s != %s",
+                       is_armed ? "ARMED" : "DISARMED",
+                       should_be_armed ? "ARMED" : "DISARMED");
+      return BT::NodeStatus::FAILURE;
+    }
+
+    txtLog().debug("FLIGHT CheckArmedCondition armed state OK: %s",
+                   is_armed ? "ARMED" : "DISARMED");
+    return BT::NodeStatus::SUCCESS;
 
   } catch (const std::exception& e) {
-    logError("Exception starting landing: %s", e.what());
+    txtLog().error("FLIGHT CheckArmedCondition exception: %s", e.what());
     return BT::NodeStatus::FAILURE;
   }
 }
 
-BT::NodeStatus LandAction::onActionRunning() {
-  // 检查服务调用结果
-  if (service_called_ &&
-      service_future_.wait_for(std::chrono::milliseconds(10)) == std::future_status::ready) {
-    auto response = service_future_.get();
-    service_called_ = false;
+// ================================ CheckLandedCondition ================================
 
-    if (!response || !response->success) {
-      logError("Landing service call failed");
+CheckLandedCondition::CheckLandedCondition(const std::string& n, const BT::NodeConfig& config,
+                                           std::shared_ptr<NodeDependencies> deps)
+    : BaseConditionNode(n, config, deps) {
+  txtLog().debug("FLIGHT CheckLandedCondition created: %s", n.c_str());
+}
+
+BT::PortsList CheckLandedCondition::providedPorts() {
+  return {
+      BT::InputPort<float>("ground_altitude_threshold", 2.0f, "Altitude threshold for ground detection")
+  };
+}
+
+BT::NodeStatus CheckLandedCondition::tick() {
+  try {
+    float ground_threshold = 2.0f;
+    getInput("ground_altitude_threshold", ground_threshold);
+
+    auto flight_state = deps_->cache->getFlightState();
+    auto position = deps_->cache->getCurrentPosition();
+
+    if (!flight_state || !position) {
+      txtLog().warning("FLIGHT CheckLandedCondition missing flight state or position");
       return BT::NodeStatus::FAILURE;
     }
 
-    logInfo("Landing command sent successfully");
-  }
-
-  // 检查是否已着陆
-  if (cache()->getFlightMode() == FlightMode::LAND) {
-    auto current_pos = cache()->getCurrentPosition();
-    float current_altitude = -current_pos.z;
+    // 检查是否解锁（landed状态下应该是解锁的）
+    bool is_disarmed = !flight_state->armed;
 
     // 检查高度是否接近地面
-    if (current_altitude < 0.5f) {
-      logInfo("Landing completed successfully");
-      return BT::NodeStatus::SUCCESS;
-    }
-  }
+    bool is_low_altitude = position->z <= ground_threshold;
 
-  // 检查超时
-  if (isTimeout()) {
-    logError("Landing timeout");
-    return BT::NodeStatus::FAILURE;
-  }
+    // 检查是否处于着陆模式或已着陆
+    bool in_land_mode = (flight_state->mode == 8);  // LAND mode
 
-  return BT::NodeStatus::RUNNING;
-}
+    bool is_landed = is_disarmed && is_low_altitude;
 
-void LandAction::onActionHalted() {
-  service_called_ = false;
-  logInfo("Landing action halted");
-}
-
-// ============= LoiterAction 实现 =============
-
-BT::NodeStatus LoiterAction::onActionStart() {
-  if (!getInputValue<float>("duration").assign_to(duration_)) {
-    duration_ = 5.0f; // 默认悬停时间
-  }
-
-  // 获取当前位置作为悬停位置
-  hover_position_ = cache()->getCurrentPosition();
-  loiter_start_time_ = std::chrono::steady_clock::now();
-
-  logInfo("Starting loiter for %.1f seconds at position (%.1f, %.1f, %.1f)",
-          duration_, hover_position_.x, hover_position_.y, hover_position_.z);
-
-  return BT::NodeStatus::RUNNING;
-}
-
-BT::NodeStatus LoiterAction::onActionRunning() {
-  auto elapsed = std::chrono::steady_clock::now() - loiter_start_time_;
-  auto elapsed_seconds = std::chrono::duration<float>(elapsed).count();
-
-  if (elapsed_seconds >= duration_) {
-    logInfo("Loiter completed");
-    return BT::NodeStatus::SUCCESS;
-  }
-
-  // 发送悬停控制指令
-  custom_msgs::msg::OffboardCtrl ctrl_msg;
-  ctrl_msg.frame = 1; // LOCAL_NED
-  ctrl_msg.type_mask = 0;
-  ctrl_msg.x = hover_position_.x;
-  ctrl_msg.y = hover_position_.y;
-  ctrl_msg.z = hover_position_.z;
-  ctrl_msg.yaw = 0.0f;
-
-  ros()->publishOffboardControl(ctrl_msg);
-
-  return BT::NodeStatus::RUNNING;
-}
-
-void LoiterAction::onActionHalted() {
-  logInfo("Loiter action halted");
-}
-
-// ============= OffboardControl 实现 =============
-
-BT::NodeStatus OffboardControl::execute() {
-  geometry_msgs::msg::Point position;
-  float yaw = 0.0f;
-  int frame = 1;
-  int type_mask = 0;
-
-  if (!getInputValue<geometry_msgs::msg::Point>("position").assign_to(position)) {
-    logError("Failed to get position parameter");
-    return BT::NodeStatus::FAILURE;
-  }
-
-  getInputValue<float>("yaw").assign_to(yaw);
-  getInputValue<int>("frame").assign_to(frame);
-  getInputValue<int>("type_mask").assign_to(type_mask);
-
-  custom_msgs::msg::OffboardCtrl msg = createOffboardMessage(position, yaw, frame, type_mask);
-  ros()->publishOffboardControl(msg);
-
-  return BT::NodeStatus::SUCCESS;
-}
-
-custom_msgs::msg::OffboardCtrl OffboardControl::createOffboardMessage(
-    const geometry_msgs::msg::Point& position, float yaw, int frame, int type_mask) {
-
-  custom_msgs::msg::OffboardCtrl msg;
-  msg.frame = frame;
-  msg.type_mask = type_mask;
-  msg.x = position.x;
-  msg.y = position.y;
-  msg.z = position.z;
-  msg.yaw = yaw;
-
-  return msg;
-}
-
-// ============= EmergencyStopAction 实现 =============
-
-BT::NodeStatus EmergencyStopAction::execute() {
-  logError("EMERGENCY STOP ACTIVATED");
-
-  // 发送紧急停止指令
-  ros()->requestEmergencyStop();
-
-  // 切换到紧急模式
-  try {
-    auto future = ros()->callFlightModeControl(static_cast<uint8_t>(FlightMode::LOITER));
-
-    // 不等待响应，立即返回成功
-    return BT::NodeStatus::SUCCESS;
-
-  } catch (const std::exception& e) {
-    logError("Exception in emergency stop: %s", e.what());
-    return BT::NodeStatus::SUCCESS; // 紧急停止总是返回成功
-  }
-}
-
-// ============= RTLAction 实现 =============
-
-BT::NodeStatus RTLAction::onActionStart() {
-  if (!getInputValue<float>("rtl_altitude").assign_to(rtl_altitude_)) {
-    rtl_altitude_ = 50.0f; // 默认返航高度
-  }
-
-  home_position_ = cache()->getHomePosition();
-
-  logInfo("Starting RTL to home position (%.1f, %.1f) at altitude %.1f m",
-          home_position_.x, home_position_.y, rtl_altitude_);
-
-  try {
-    // 使用RTL指令
-    auto request = std::make_shared<custom_msgs::srv::CommandLong::Request>();
-    request->command = 20; // CMD_NAV_RETURN_TO_LAUNCH
-    request->param7 = rtl_altitude_;
-
-    service_future_ = ros()->callService<custom_msgs::srv::CommandLong>(
-        "command/long", request);
-    service_called_ = true;
-
-    return BT::NodeStatus::RUNNING;
-
-  } catch (const std::exception& e) {
-    logError("Exception starting RTL: %s", e.what());
-    return BT::NodeStatus::FAILURE;
-  }
-}
-
-BT::NodeStatus RTLAction::onActionRunning() {
-  // 检查服务调用结果
-  if (service_called_ &&
-      service_future_.wait_for(std::chrono::milliseconds(10)) == std::future_status::ready) {
-    auto response = service_future_.get();
-    service_called_ = false;
-
-    if (!response || !response->success) {
-      logError("RTL service call failed");
+    if (!is_landed && !in_land_mode) {
+      txtLog().debug("FLIGHT CheckLandedCondition not landed: armed=%s, alt=%.2f, mode=%d",
+                     flight_state->armed ? "true" : "false", position->z, flight_state->mode);
       return BT::NodeStatus::FAILURE;
     }
 
-    logInfo("RTL command sent successfully");
-  }
-
-  // 检查是否到达Home点
-  auto current_pos = cache()->getCurrentPosition();
-  double distance_to_home = std::sqrt(
-      std::pow(current_pos.x - home_position_.x, 2) +
-          std::pow(current_pos.y - home_position_.y, 2));
-
-  if (distance_to_home < 5.0) { // 5米范围内认为到达
-    logInfo("RTL completed, arrived at home position");
+    txtLog().debug("FLIGHT CheckLandedCondition landed confirmed: armed=%s, alt=%.2f",
+                   flight_state->armed ? "true" : "false", position->z);
     return BT::NodeStatus::SUCCESS;
-  }
 
-  // 检查超时
-  if (isTimeout()) {
-    logError("RTL timeout");
+  } catch (const std::exception& e) {
+    txtLog().error("FLIGHT CheckLandedCondition exception: %s", e.what());
     return BT::NodeStatus::FAILURE;
   }
-
-  return BT::NodeStatus::RUNNING;
 }
 
-void RTLAction::onActionHalted() {
-  service_called_ = false;
-  logInfo("RTL action halted");
-}
-
-// ============= SetHomeAction 实现 =============
-
-BT::NodeStatus SetHomeAction::execute() {
-  geometry_msgs::msg::Point home_point;
-  bool use_current = false;
-
-  getInputValue<bool>("use_current").assign_to(use_current);
-
-  if (use_current) {
-    home_point = cache()->getCurrentPosition();
-    logInfo("Setting home point to current position: (%.1f, %.1f, %.1f)",
-            home_point.x, home_point.y, home_point.z);
-  } else {
-    if (!getInputValue<geometry_msgs::msg::Point>("home_point").assign_to(home_point)) {
-      logError("Failed to get home_point parameter");
-      return BT::NodeStatus::FAILURE;
-    }
-    logInfo("Setting home point to specified position: (%.1f, %.1f, %.1f)",
-            home_point.x, home_point.y, home_point.z);
-  }
-
-  // 更新缓存
-  cache()->setHomePosition(home_point);
-  context()->setHomePoint(home_point);
-
-  // 发布home点
-  ros()->publishCoordinate(home_point);
-
-  return BT::NodeStatus::SUCCESS;
-}
-
-// ============= WeaponControl 实现 =============
-
-BT::NodeStatus WeaponControl::execute() {
-  int action;
-  if (!getInputValue<int>("action").assign_to(action)) {
-    logError("Failed to get action parameter");
-    return BT::NodeStatus::FAILURE;
-  }
-
-  logInfo("Weapon control: %s", action ? "deploy" : "cancel");
-
-  // 这里可以添加实际的武器控制逻辑
-  // 当前只是记录日志
-
-  return BT::NodeStatus::SUCCESS;
-}
+}  // namespace behavior_node
