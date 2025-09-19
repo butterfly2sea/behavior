@@ -94,10 +94,9 @@ enum NavFrameType {
 
 // off_board控制类型
 enum class ControlType {
-  POSITION,    // 位置控制
-  VELOCITY,    // 速度控制
-  ATTITUDE,    // 姿态控制
-  ACCELERATION // 加速度控制
+  Cmd = 0,          // 回复的是控制指令结果
+  TraceAttack = 1,  // 回复的是跟踪、打击结果
+  JsonTask = 2      // json任务
 };
 
 // set_line
@@ -133,12 +132,12 @@ enum HeightType {
 
 // 任务状态
 enum StatusStage{
-  StsNoStart,///<!未开始>
-  StsOngoing,///<!正在进行>
-  StsFailed, ///<!失败>
-  StsComplete,///<!完成>
-  StsNotready,///<!未就绪>
-  StsNull
+  StsNoStart = 0,   // 未开始
+  StsOngoing = 1,   // 正在进行
+  StsFailed = 2,    // 失败
+  StsComplete = 3,  // 完成
+  StsNotready = 4,  // 未就绪
+  StsNull = 5
 };
 
 enum CmdType{

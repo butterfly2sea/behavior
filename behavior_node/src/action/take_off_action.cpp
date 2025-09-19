@@ -6,11 +6,7 @@
 #include "behavior_node/data/ros_communication_manager.hpp"
 
 BT::NodeStatus TakeOffAction::onStart() {
-// 从参数或上下文获取起飞高度
-  auto alt_opt = getInput<double>("alt");
-  if (alt_opt) {
-    target_altitude_ = alt_opt.value();
-  } else if (context()->hasParameter("alt")) {
+  if (context()->hasParameter("alt")) {
     target_altitude_ = std::stod(context()->getParameter("alt").get<std::string>());
   } else {
     txtLog().error(THISMODULE "Takeoff action failed: no altitude provided");

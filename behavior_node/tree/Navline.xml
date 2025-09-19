@@ -1,56 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<root BTCPP_format="4">
-    <!-- 导航线飞行-开始 -->
-    <BehaviorTree ID="Navline-start">
+<root BTCPP_format="4" main_tree_to_execute="Navline">
+    <BehaviorTree ID="Navline">
         <Sequence name="NavlineSequence">
             <!-- 设置航线参数 -->
-            <SetLineParameters
-                    vehiTypParam="vehiType"
-                    spdParam="spd"
-                    disParam="arvDis"
-                    ptTypParam="pointTag"
-                    ptsParam="wayPoints"
-                    lpsParam="loops" />
+            <SetLineParameters ptsParam="wayPoints" spdParam="spd" lpsParam="loops" disParam="arvDis" />
 
-            <!-- 设置编队偏移 -->
-            <SetFormationOffset offsetParam="formOffset" />
+            <!-- 进入OFFBOARD模式 -->
+            <FlightModeControl mode="9" />
 
-            <!-- 解锁并进入OFFBOARD模式 -->
-            <LockControl state="1" />
-            <FlightModeControl mode="OFFBOARD" />
+            <!-- 执行航线飞行 -->
+            <NavlineAction wayPoints="{wayPoints}" spd="{spd}" loops="{loops}" arvDis="{arvDis}" />
 
-            <!-- 执行导航线飞行 -->
-            <NavlineAction
-                    wayPoints="{wayPoints}"
-                    spd="{spd}"
-                    loops="{loops}"
-                    arvDis="{arvDis}" />
-        </Sequence>
-    </BehaviorTree>
-
-    <!-- 导航线飞行-暂停 -->
-    <BehaviorTree ID="Navline-pause">
-        <Sequence name="NavlinePause">
-            <LoiterAction duration="999999" />
-        </Sequence>
-    </BehaviorTree>
-
-    <!-- 导航线飞行-继续 -->
-    <BehaviorTree ID="Navline-continue">
-        <Sequence name="NavlineContinue">
-            <FlightModeControl mode="OFFBOARD" />
-            <NavlineAction
-                    wayPoints="{wayPoints}"
-                    spd="{spd}"
-                    loops="{loops}"
-                    arvDis="{arvDis}" />
-        </Sequence>
-    </BehaviorTree>
-
-    <!-- 导航线飞行-停止 -->
-    <BehaviorTree ID="Navline-stop">
-        <Sequence name="NavlineStop">
-            <LoiterAction duration="5" />
+            <!-- 检查航线完成条件 -->
+            <ReactiveFallback>
+                <CheckQuitLineLoop />
+                <CheckArriveDestination />
+            </ReactiveFallback>
         </Sequence>
     </BehaviorTree>
 </root>

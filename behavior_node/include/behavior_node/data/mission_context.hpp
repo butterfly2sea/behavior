@@ -7,10 +7,6 @@
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/polygon.hpp>
 #include <custom_msgs/msg/task_stage.hpp>
-<<<<<<< Updated upstream
-#include <custom_msgs/msg/status_task.hpp>
-=======
->>>>>>> Stashed changes
 #include <custom_msgs/msg/object_location.hpp>
 
 #include "behavior_node/data/base_enum.hpp"
@@ -33,8 +29,6 @@ class MissionContext {
   std::atomic<uint32_t> wp_id_{0xFFFFFFFF}; // 航线当前航点id
   std::atomic<SetContentType> set_type_{SetContentType::TWO_SWITCH};
 
-  std::atomic<behavior_core::SystemState> system_state_{behavior_core::SystemState::INITIALIZING};
-
   // 复杂数据类型使用轻量级mutex保护
   mutable std::mutex data_mutex_;
   std::string current_action_;
@@ -48,6 +42,7 @@ class MissionContext {
   std::set<uint8_t> excluded_ids_;
   custom_msgs::msg::TaskStage task_stage_;
   custom_msgs::msg::ObjectLocation attack_obj_loc_;
+  behavior_core::SystemState system_state_{behavior_core::SystemState::INITIALIZING};
 
  public:
   explicit MissionContext() { txtLog().info(THISMODULE "Initialized mission context"); }
@@ -200,16 +195,6 @@ class MissionContext {
     txtLog().debug(THISMODULE "Set parameter: %s", key.c_str());
   }
 
-  void setParameters(const nlohmann::json &params){
-    std::lock_guard<std::mutex> lock(data_mutex_);
-    auto parameters = params.get<std::unordered_map<std::string, nlohmann::json>>();
-    txtLog().debug(THISMODULE "Set parameters, count: %zu", parameters.size());
-    for (auto const& [key, value] : parameters) {
-      parameters_[key] = value;
-      txtLog().debug(THISMODULE "Set parameter: %s", key.c_str());
-    }
-  }
-
   nlohmann::json getParameter(const std::string &key) const {
     std::lock_guard<std::mutex> lock(data_mutex_);
     if (parameters_.contains(key)) {
@@ -353,23 +338,14 @@ class MissionContext {
 
   // 系统状态管理
   void setSystemState(behavior_core::SystemState state) {
-    system_state_.store(state, std::memory_order_relaxed);
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    system_state_ = state;
     txtLog().info(THISMODULE "System state changed to: %d", static_cast<int>(state));
   }
 
   behavior_core::SystemState getSystemState() const {
-    return system_state_.load(std::memory_order_relaxed);
-  }
-
-  std::string getSystemStateString() const {
-    switch (system_state_.load()) {
-      case behavior_core::SystemState::INITIALIZING: return "INITIALIZING";
-      case behavior_core::SystemState::RUNNING: return "RUNNING";
-      case behavior_core::SystemState::PAUSED: return "PAUSED";
-      case behavior_core::SystemState::ERROR: return "ERROR";
-      case behavior_core::SystemState::SHUTTING_DOWN: return "SHUTTING_DOWN";
-      default: return "UNKNOWN";
-    }
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    return system_state_;
   }
 
   // 清理操作

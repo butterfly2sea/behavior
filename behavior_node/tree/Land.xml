@@ -1,34 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<root BTCPP_format="4">
-    <!-- 降落-开始 -->
-    <BehaviorTree ID="Land-start">
+<root BTCPP_format="4" main_tree_to_execute="Land">
+    <BehaviorTree ID="Land">
         <Sequence name="LandSequence">
             <!-- 执行降落 -->
             <LandAction />
 
             <!-- 降落完成后锁定飞机 -->
             <LockControl state="0" />
-        </Sequence>
-    </BehaviorTree>
-
-    <!-- 降落-暂停 -->
-    <BehaviorTree ID="Land-pause">
-        <Sequence name="LandPause">
-            <LoiterAction duration="999999" />
-        </Sequence>
-    </BehaviorTree>
-
-    <!-- 降落-继续 -->
-    <BehaviorTree ID="Land-continue">
-        <Sequence name="LandContinue">
-            <LandAction />
-        </Sequence>
-    </BehaviorTree>
-
-    <!-- 降落-停止 -->
-    <BehaviorTree ID="Land-stop">
-        <Sequence name="LandStop">
-            <LoiterAction duration="5" />
         </Sequence>
     </BehaviorTree>
 </root>

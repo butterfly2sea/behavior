@@ -1,45 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<root BTCPP_format="4">
-    <!-- 自动跟踪-开始 -->
-    <BehaviorTree ID="AutoTrace-start">
+<root BTCPP_format="4" main_tree_to_execute="AutoTrace">
+    <BehaviorTree ID="AutoTrace">
         <Sequence name="AutoTraceSequence">
-            <!-- 设置跟踪目标位置 -->
-            <SetDestinationPoint
-                    dstLocParam="dstLoc"
-                    ptTypParam="pointTag"
-                    executorParam="excutor" />
+            <!-- 设置目标点 -->
+            <SetDestinationPoint dstParam="dstLoc" disParam="arvDis" />
 
-            <!-- 解锁并进入OFFBOARD模式 -->
-            <LockControl state="1" />
-            <FlightModeControl mode="OFFBOARD" />
+            <!-- 进入OFFBOARD模式 -->
+            <FlightModeControl mode="9" />
 
-            <!-- 执行自动跟踪 -->
-            <TraceAttackControl
-                    dstLoc="{dstLoc}"
-                    arvDis="{arvDis}" />
-        </Sequence>
-    </BehaviorTree>
+            <!-- 执行跟踪控制 -->
+            <TraceAttackControl frame="1" command="3" current="1" />
 
-    <!-- 自动跟踪-暂停 -->
-    <BehaviorTree ID="AutoTrace-pause">
-        <Sequence name="AutoTracePause">
-            <LoiterAction duration="999999" />
-        </Sequence>
-    </BehaviorTree>
-
-    <!-- 自动跟踪-继续 -->
-    <BehaviorTree ID="AutoTrace-continue">
-        <Sequence name="AutoTraceContinue">
-            <TraceAttackControl
-                    dstLoc="{dstLoc}"
-                    arvDis="{arvDis}" />
-        </Sequence>
-    </BehaviorTree>
-
-    <!-- 自动跟踪-停止 -->
-    <BehaviorTree ID="AutoTrace-stop">
-        <Sequence name="AutoTraceStop">
-            <LoiterAction duration="5" />
+            <!-- 检查到达目标 -->
+            <CheckArriveDestination />
         </Sequence>
     </BehaviorTree>
 </root>

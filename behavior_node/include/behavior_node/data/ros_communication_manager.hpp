@@ -39,30 +39,6 @@
 #include <custom_msgs/srv/command_long.hpp>
 #include <custom_msgs/srv/command_string.hpp>
 
-namespace behavior_core {
-
-// JSON任务参数结构
-struct TaskAction {
-  int groupid;
-  int id;
-  std::string name;
-  std::unordered_map<std::string, nlohmann::json> params;
-  std::unordered_map<std::string, nlohmann::json> triggers;
-};
-
-struct TaskStage {
-  std::string name;
-  int sn;
-  std::string cmd;  // start, pause, continue, stop
-  std::vector<TaskAction> actions;
-};
-
-struct TaskMission {
-  std::vector<TaskStage> stages;
-};
-
-} // namespace behavior_core
-
 class ROSCommunicationManager {
  private:
   rclcpp::Node::SharedPtr node_;
@@ -120,21 +96,6 @@ class ROSCommunicationManager {
   }
 
   // 专用发布接口
-<<<<<<< Updated upstream
-  void publishOffboardControl(const custom_msgs::msg::OffboardCtrl& msg) {
-    publish(ros_interface::topics::OFFBOARD_CONTROL, msg);
-  }
-
-  void publishCommandResponse(const custom_msgs::msg::CommandResponse& msg) {
-    publish(ros_interface::topics::OUTER_RESPONSE, msg);
-  }
-
-  void publishTaskStatus(const custom_msgs::msg::StatusTask& msg) {
-    publish(ros_interface::topics::OUTER_STATUS_TASK, msg);
-  }
-
-  void publishSystemStatus(const custom_msgs::msg::StatusTask& msg) {
-=======
   void publishOffboardControl(const custom_msgs::msg::OffboardCtrl &msg) {
     publish(ros_interface::topics::OFFBOARD_CONTROL, msg);
   }
@@ -148,7 +109,6 @@ class ROSCommunicationManager {
   }
 
   void publishSystemStatus(const custom_msgs::msg::StatusTask &msg) {
->>>>>>> Stashed changes
     publishTaskStatus(msg);
   }
 
@@ -331,15 +291,10 @@ class ROSCommunicationManager {
       publishers_[topics::SET_LOOPS] =
           node_->create_publisher<std_msgs::msg::Int32>(
               topics::SET_LOOPS, rclcpp::QoS(1));
-
       // 编组设置发布
       publishers_[topics::SET_GROUP] =
           node_->create_publisher<std_msgs::msg::UInt8>(
-<<<<<<< Updated upstream
-              topics::SET_GROUP,rclcpp::QoS(1));
-=======
               topics::SET_GROUP, rclcpp::QoS(1));
->>>>>>> Stashed changes
 
       // 编队队形发布
       publishers_[topics::SET_FORMATION] =
@@ -572,9 +527,8 @@ class ROSCommunicationManager {
   }
 
   static bool validateAction(const nlohmann::json &action) {
-    return action.contains("name") && action.contains("id") &&
-        action.contains("groupid") && action.contains("params") && action["params"].is_array()
-        && action.contains("trigger") && action["trigger"].is_array();
+    return action.contains("name") && action.contains("id");// &&
+//        action.contains("groupid") && action.contains("params") && action.contains("trigger");
   }
 
   void processTaskStage(const behavior_core::TaskStage &stage) {
@@ -607,15 +561,15 @@ class ROSCommunicationManager {
       }
 
       behavior_core::BehaviorCommand command = behavior_core::BehaviorCommand::NONE;
-      if (cmd == "start"){
+      if (cmd == "start") {
         command = behavior_core::BehaviorCommand::LOAD_TREE;
-      }else if (cmd == "stop"){
+      } else if (cmd == "stop") {
         command = behavior_core::BehaviorCommand::STOP_TREE;
-      }else if (cmd == "pause"){
+      } else if (cmd == "pause") {
         command = behavior_core::BehaviorCommand::PAUSE_TREE;
-      }else if (cmd == "resume"){
+      } else if (cmd == "resume") {
         command = behavior_core::BehaviorCommand::RESUME_TREE;
-      }else{
+      } else {
         txtLog().warnning(THISMODULE "Invalid command: %s", cmd.c_str());
       }
 
@@ -634,7 +588,7 @@ class ROSCommunicationManager {
     }
   }
 
-  void handleAttackDesignate(const custom_msgs::msg::ObjectAttackDesignate::SharedPtr msg) {
+  void handleAttackDesignate(custom_msgs::msg::ObjectAttackDesignate::SharedPtr msg) {
     if (!data_cache_ || !mission_context_) return;
     auto vehicle_id = data_cache_->getVehicleId();
     bool is_attack = false;
@@ -651,17 +605,11 @@ class ROSCommunicationManager {
     }
     mission_context_->setAttackObjLoc(msg.get()->objs);
     mission_context_->setTraceAttackType(msg.get()->type);
-<<<<<<< Updated upstream
-  }
-
-  void handleCommand(custom_msgs::msg::CommandRequest::SharedPtr msg) {
-=======
     txtLog().info(THISMODULE "Processed attack designate");
   }
 
   // 处理控制指令
   void handleCommand(const custom_msgs::msg::CommandRequest::SharedPtr msg) {
->>>>>>> Stashed changes
     if (!data_cache_ || !mission_context_) return;
 
     auto vehicle_id = data_cache_->getVehicleId();
@@ -695,11 +643,7 @@ class ROSCommunicationManager {
       }
     }
   }
-<<<<<<< Updated upstream
-    void processCommand(custom_msgs::msg::CommandRequest::SharedPtr msg) {
-=======
   void processCommand(custom_msgs::msg::CommandRequest::SharedPtr msg) {
->>>>>>> Stashed changes
     custom_msgs::msg::CommandResponse response;
     response.id = data_cache_->getVehicleId();
     response.src = CtrlType::Cmd;
@@ -719,7 +663,8 @@ class ROSCommunicationManager {
 
     publish(ros_interface::topics::OUTER_RESPONSE, response);
   }
-void handleSetVideoCommand(custom_msgs::msg::CommandRequest::SharedPtr msg,
+
+  void handleSetVideoCommand(custom_msgs::msg::CommandRequest::SharedPtr msg,
                              custom_msgs::msg::CommandResponse &response) {
     custom_msgs::msg::ImageDistribute img_dis;
     img_dis.type = msg->param0;
@@ -750,7 +695,7 @@ void handleSetVideoCommand(custom_msgs::msg::CommandRequest::SharedPtr msg,
     auto vehicle_state = data_cache_->getVehicleState();
     if (vehicle_state && vehicle_state->lock == LockState::UNLOCK) {
       txtLog().warnning(THISMODULE "Vehicle is locked, cannot set home");
-      response.status = CmdStatus::Failed;
+      response.status = static_cast<int>(CmdStatus::Failed);
       response.rslt = "Vehicle is locked, cannot set home";
       return;
     }
@@ -776,77 +721,6 @@ void handleSetVideoCommand(custom_msgs::msg::CommandRequest::SharedPtr msg,
       publishTaskStatus(status_msg);
 
     } catch (const std::exception &e) {
-      txtLog().error(THISMODULE "Failed to publish stage status: %s", e.what());
-    }
-  }
-  void processTaskStage(const behavior_core::TaskStage& stage) {
-    try {
-      // 更新任务上下文
-      mission_context_->setStage(stage.sn);
-
-      txtLog().info(THISMODULE "Processing stage: %s (sn=%d, cmd=%s) with %zu actions",
-                    stage.name.c_str(), stage.sn, stage.cmd.c_str(), stage.actions.size());
-
-      // 处理每个动作
-      for (const auto& action : stage.actions) {
-        processTaskAction(action, stage.cmd);
-      }
-
-      // 发布任务状态
-      publishStageStatus(stage, behavior_core::TaskStatus::ONGOING);
-
-    } catch (const std::exception& e) {
-      txtLog().error(THISMODULE "Failed to process task stage: %s", e.what());
-      publishStageStatus(stage, behavior_core::TaskStatus::FAILED);
-    }
-  }
-
-  void processTaskAction(const behavior_core::TaskAction& action, const std::string& cmd) {
-    try {
-      // 查找对应的行为树
-      auto tree_it = task_to_tree_mapping_.find(action.name);
-      if (tree_it == task_to_tree_mapping_.end()) {
-        txtLog().warnning(THISMODULE "Unknown task action: %s", action.name.c_str());
-        return;
-      }
-
-      // 构建行为树名称 (格式: TaskName-cmd)
-      std::string tree_name = tree_it->second + "-" + cmd;
-
-      // 将参数存储到任务上下文
-      for (const auto& [key, value] : action.params) {
-        mission_context_->setParameter(key, value);
-      }
-
-      // 创建行为树执行消息
-      auto message = std::make_shared<behavior_core::TreeMessage>();
-      message->type = behavior_core::MessageType::TREE_EXECUTION;
-      message->tree_name = tree_name;
-      message->action_name = action.name;
-      message->group_id = action.groupid;
-      message->vehicle_id = action.id;
-      message->parameters = action.params;
-
-      message_queue_->push(message);
-
-      txtLog().info(THISMODULE "Queued tree execution: %s for vehicle %d (group %d)",
-                    tree_name.c_str(), action.id, action.groupid);
-
-    } catch (const std::exception& e) {
-      txtLog().error(THISMODULE "Failed to process task action %s: %s",
-                     action.name.c_str(), e.what());
-    }
-  }
-
-  void publishStageStatus(const behavior_core::TaskStage& stage, behavior_core::TaskStatus status) {
-    try {
-      custom_msgs::msg::StatusTask status_msg;
-      status_msg.id = data_cache_->getVehicleId();
-      status_msg.stage = stage.sn;
-      status_msg.status = static_cast<int>(status);
-      publishTaskStatus(status_msg);
-
-    } catch (const std::exception& e) {
       txtLog().error(THISMODULE "Failed to publish stage status: %s", e.what());
     }
   }

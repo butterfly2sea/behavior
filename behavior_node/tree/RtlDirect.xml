@@ -1,37 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<root BTCPP_format="4">
-    <!-- 直接返航-开始 -->
-    <BehaviorTree ID="RtlDirect-start">
-        <Sequence name="RtlSequence">
+<root BTCPP_format="4" main_tree_to_execute="RtlDirect">
+    <BehaviorTree ID="RtlDirect">
+        <Sequence name="RtlDirectSequence">
+            <!-- 设置飞行模式为OFFBOARD -->
+            <FlightModeControl mode="9" />
+
             <!-- 执行直接返航 -->
             <RtlDirectAction />
-
-            <!-- 返航完成后降落 -->
-            <LandAction />
-
-            <!-- 锁定飞机 -->
-            <LockControl state="0" />
-        </Sequence>
-    </BehaviorTree>
-
-    <!-- 直接返航-暂停 -->
-    <BehaviorTree ID="RtlDirect-pause">
-        <Sequence name="RtlPause">
-            <LoiterAction duration="999999" />
-        </Sequence>
-    </BehaviorTree>
-
-    <!-- 直接返航-继续 -->
-    <BehaviorTree ID="RtlDirect-continue">
-        <Sequence name="RtlContinue">
-            <RtlDirectAction />
-        </Sequence>
-    </BehaviorTree>
-
-    <!-- 直接返航-停止 -->
-    <BehaviorTree ID="RtlDirect-stop">
-        <Sequence name="RtlStop">
-            <LoiterAction duration="5" />
         </Sequence>
     </BehaviorTree>
 </root>

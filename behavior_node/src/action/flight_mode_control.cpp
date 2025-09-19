@@ -20,8 +20,6 @@ BT::NodeStatus FlightModeControl::onStart() {
     txtLog().error(THISMODULE "failed to get altParam name");
     return BT::NodeStatus::FAILURE;
   }
-  // 从地面站的控制指令获取设置高度参数
-  float takeoff_z = context()->getParameter(altName).get<float>();
   if (ros()->isServiceReady(ros_interface::services::SET_FLIGHT_MODE)) {
     txtLog().info(THISMODULE "Service is ready");
     auto req = std::make_shared<custom_msgs::srv::CommandLong::Request>();
@@ -29,6 +27,8 @@ BT::NodeStatus FlightModeControl::onStart() {
     if (param7) {// 此参数用于起飞模式时，起飞高度值
       req->param7 = param7.value();
     } else {
+      // 从地面站的控制指令获取设置高度参数
+      float takeoff_z = std::atof(context()->getParameter(altName).get<std::string>().c_str());
       req->param7 = takeoff_z;// 起飞高度由地面站设置，保存在此处
     }
     if (target_mode != int(FlightMode::Unknown)) {
@@ -44,7 +44,7 @@ BT::NodeStatus FlightModeControl::onStart() {
 BT::NodeStatus FlightModeControl::onRunning() {
   txtLog().info(THISMODULE "Waiting for service response");
   auto elapsed = std::chrono::steady_clock::now() - start_time_;
-  if (elapsed> timeout_){
+  if (elapsed > timeout_) {
     txtLog().error(THISMODULE "Timeout waiting for service response");
     return BT::NodeStatus::FAILURE;
   }

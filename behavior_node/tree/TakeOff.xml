@@ -1,40 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<root BTCPP_format="4">
-    <!-- 起飞-开始 -->
-    <BehaviorTree ID="TakeOff-start">
+<root BTCPP_format="4" main_tree_to_execute="TakeOff">
+    <BehaviorTree ID="TakeOff">
         <Sequence name="TakeOffSequence">
             <!-- 解锁飞机 -->
-            <LockControl state="1" />
+<!--            <LockControl state="1" />-->
 
             <!-- 设置飞行模式为OFFBOARD -->
-            <FlightModeControl mode="OFFBOARD" />
+            <FlightModeControl mode="9" />
 
             <!-- 执行起飞 -->
             <TakeOffAction alt="{alt}" />
-
-            <!-- 起飞完成后短暂悬停 -->
-            <LoiterAction duration="3" />
-        </Sequence>
-    </BehaviorTree>
-
-    <!-- 起飞-暂停 -->
-    <BehaviorTree ID="TakeOff-pause">
-        <Sequence name="TakeOffPause">
-            <LoiterAction duration="999999" />
-        </Sequence>
-    </BehaviorTree>
-
-    <!-- 起飞-继续 -->
-    <BehaviorTree ID="TakeOff-continue">
-        <Sequence name="TakeOffContinue">
-            <TakeOffAction alt="{alt}" />
-        </Sequence>
-    </BehaviorTree>
-
-    <!-- 起飞-停止 -->
-    <BehaviorTree ID="TakeOff-stop">
-        <Sequence name="TakeOffStop">
-            <LoiterAction duration="5" />
         </Sequence>
     </BehaviorTree>
 </root>
